@@ -4,7 +4,8 @@ FGNetCheck.ps1  格闘ゲーム向け PC 設定チェック
   1. 診断      今の設定とおすすめの差、手作業の案内、起動・セキュリティの確認を表示する（何も変えない）
   2. 適用      おすすめ設定を入れる。変更前の値を backup フォルダに保存する
   3. 元に戻す  保存した値に戻す
-  4. 測定      ping で遅延・ゆらぎ・ロスを測り、measure_log.txt に残す
+  4. 測定      ping で遅延・ゆらぎ・跳ね・ロスを測り、measure_log.txt に残す
+               （短い測定・長い測定・負荷をかけた測定。P2P のつながりやすさも確かめる）
 
 配布版は FGNetCheck.bat の 1 ファイル（build.ps1 がこのファイルを bat に埋め込む）。
 bat から動くときは -Launcher に bat のパスが渡り、backup などは bat の隣にできる。
@@ -13,7 +14,10 @@ param(
     [ValidateSet('Menu', 'Diagnose', 'Apply', 'Restore', 'Measure')]
     [string]$Mode = 'Menu',
     [string]$BackupFile,
-    [string]$Launcher
+    [string]$Launcher,
+    # -Mode Measure のときの測り方。メニューから選んだときは画面で尋ねる
+    [ValidateSet('Short', 'Long', 'Load')]
+    [string]$Measure = 'Short'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -152,6 +156,27 @@ function Get-TargetAdapters {
     # 有線 (802.3 = 14) と Wi-Fi (802.11 = 9) の実物だけ。仮想・VPN は触らない
     @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue |
         Where-Object { $_.NdisPhysicalMedium -in @(9, 14) -and $_.Status -ne 'Disabled' })
+}
+
+# インターネットへ出るときに実際に使う経路。
+# 優先順位は「ルートのメトリック + インターフェイスのメトリック」で決まるので、Windows に経路を引かせる
+function Get-InternetRoute {
+    $r = $null
+    try {
+        $r = @(Find-NetRoute -RemoteIPAddress '1.1.1.1' -ErrorAction Stop |
+            Where-Object { $_.PSObject.Properties['NextHop'] }) | Select-Object -First 1
+    } catch { }
+    if (-not $r) {
+        $r = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+            Sort-Object { [int]$_.RouteMetric + [int]$_.InterfaceMetric } | Select-Object -First 1
+    }
+    if (-not $r) { return $null }
+    $a = Get-NetAdapter -InterfaceIndex $r.InterfaceIndex -IncludeHidden -ErrorAction SilentlyContinue | Select-Object -First 1
+    # VPN・仮想スイッチ・テザリングなどは other
+    $kind = 'other'
+    if ($a -and -not $a.Virtual -and $a.NdisPhysicalMedium -eq 9) { $kind = 'wifi' }
+    elseif ($a -and -not $a.Virtual -and $a.NdisPhysicalMedium -eq 14) { $kind = 'wired' }
+    [pscustomobject]@{ Alias = "$($r.InterfaceAlias)"; Index = $r.InterfaceIndex; NextHop = "$($r.NextHop)"; Adapter = $a; Kind = $kind }
 }
 
 function Get-MediaLabel($a) {
@@ -455,13 +480,13 @@ function Show-Adapters {
     foreach ($a in Get-TargetAdapters) {
         Write-Host ("  {0} [{1}] 状態:{2} 速度:{3}  {4}" -f $a.Name, (Get-MediaLabel $a), $a.Status, $a.LinkSpeed, $a.InterfaceDescription)
     }
-    $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
-        Sort-Object RouteMetric | Select-Object -First 1
+    $route = Get-InternetRoute
     if ($route) {
-        Write-Host "  インターネットに使っているもの: $($route.InterfaceAlias)"
-        $used = Get-NetAdapter -InterfaceIndex $route.InterfaceIndex -ErrorAction SilentlyContinue
-        if ($used -and $used.NdisPhysicalMedium -eq 9) {
+        Write-Host "  インターネットに使っているもの: $($route.Alias)"
+        if ($route.Kind -eq 'wifi') {
             Write-Host '  注意: Wi-Fi でつないでいます。格闘ゲームのオンライン対戦では、揺れやロスが巻き戻りやカクつきになって出ます。有線 LAN にするのがいちばん効きます。' -ForegroundColor Yellow
+        } elseif ($route.Kind -eq 'other') {
+            Write-Host '  注意: 有線 LAN でも Wi-Fi でもないアダプター（VPN、仮想スイッチ、テザリングなど）を通っています。VPN を使っているなら、対戦のあいだは切ると遅延が減ります。' -ForegroundColor Yellow
         }
     }
 }
@@ -478,6 +503,10 @@ function Show-Plan($state) {
         }
     }
     $rows | Format-Table -AutoSize -Wrap | Out-String -Width 220 | Write-Host
+    if (@($state | Where-Object { $_.Group -eq 'B' -and -not $_.Ok }).Count -gt 0) {
+        Write-Host "※「$($GroupName['B'])」は TCP の設定です。対戦中の通信は多くのゲームで UDP なので、対戦の遅延は変わりません。"
+        Write-Host '  ダウンロードやブラウザーなどの通信を、他のツールが変える前の状態に戻すための項目です。'
+    }
 }
 
 function Get-RegValue([string]$path, [string]$name) {
@@ -617,9 +646,8 @@ function Show-Advice {
     }
 
     # Wi-Fi で使っているときは電波の強さを見る
-    $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -First 1
-    $used = if ($route) { Get-NetAdapter -InterfaceIndex $route.InterfaceIndex -ErrorAction SilentlyContinue } else { $null }
-    if ($used -and $used.NdisPhysicalMedium -eq 9) {
+    $route = Get-InternetRoute
+    if ($route -and $route.Kind -eq 'wifi') {
         $sig = $null
         $wl = (cmd /c 'netsh wlan show interfaces') -join "`n"
         if ($wl -match '(\d{1,3})\s*%') { $sig = [int]$Matches[1] }
@@ -627,11 +655,57 @@ function Show-Advice {
             Write-Check '注意' "Wi-Fi の電波が弱めです（$sig%）。" 'ルーターに近づく、5GHz / 6GHz を使う、有線 LAN にする、のどれかが効きます。'
         } elseif ($null -ne $sig) {
             Write-Check 'OK' "Wi-Fi の電波: $sig%"
+        } else {
+            # Windows 11 24H2 以降は、位置情報がオフだと netsh が Wi-Fi の情報を返さない
+            Write-Check '情報' 'Wi-Fi の電波の強さを読めませんでした。' 'Windows 11 24H2 以降は、設定 → プライバシーとセキュリティ → 位置情報 がオフだと読めません。タスクバーの Wi-Fi アイコンの本数で確かめてください。'
         }
         Write-Check '情報' '数十秒おきに ping が跳ねるときは、Wi-Fi の周辺スキャンが原因のことがあります。' 'Wi-Fi ドライバーの更新と、ルーターのローミング・背景スキャンの設定を確認してください。'
     }
 
-    Write-Check '情報' 'P2P で対戦するゲームでつながりにくい・相手が限られるときは、ルーター側の設定が原因のことがあります。' 'ルーターの UPnP を有効にするか、ゲームの案内に従ってポートを開けてください（ツールからは確認できません）。'
+    # 有線のリンク速度と通信エラー。ケーブルや差し込み口の不良は、速度の低下やエラーとして出る
+    foreach ($a in @(Get-TargetAdapters | Where-Object { $_.NdisPhysicalMedium -eq 14 -and "$($_.Status)" -eq 'Up' })) {
+        $mbps = [math]::Round([double]$a.Speed / 1000000)
+        if ($mbps -gt 0 -and $mbps -lt 1000) {
+            Write-Check '注意' "$($a.Name) が ${mbps}Mbps でつながっています。" 'LAN ケーブル（Cat5e 以上か、傷んでいないか）と差し込み口を確かめてください。ルーターやハブが 100Mbps までの機種なら、このままで正常です。'
+        } elseif ($mbps -ge 1000) {
+            Write-Check 'OK' "$($a.Name) のリンク速度: $($a.LinkSpeed)"
+        }
+        $st = Get-NetAdapterStatistics -Name $a.Name -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($st) {
+            $err = [double]$st.ReceivedPacketErrors + [double]$st.OutboundPacketErrors
+            $pk = [double]$st.ReceivedUnicastPackets + [double]$st.SentUnicastPackets
+            if ($err -gt 0 -and $pk -gt 0 -and ($err / $pk) -ge 0.0001) {
+                Write-Check '注意' "$($a.Name) で通信エラーが多めです（$err 件。アダプターが動き始めてからの合計）。" 'LAN ケーブルを替える、ルーターやハブの別の差し込み口を使う、のどちらかを試してください。'
+            } elseif ($err -gt 0) {
+                Write-Check '情報' "$($a.Name) で通信エラーが少しあります（$err 件。アダプターが動き始めてからの合計）。増え続けるなら LAN ケーブルを疑ってください。"
+            }
+        }
+    }
+
+    # ドライバーの既定と違うアダプター設定。省電力と LSO は上の表で扱うので除く
+    $handled = @($AdvKeywords | ForEach-Object { $_.Key })
+    foreach ($a in Get-TargetAdapters) {
+        $changed = @(Get-NetAdapterAdvancedProperty -Name $a.Name -ErrorAction SilentlyContinue | Where-Object {
+            $cur = "$(@($_.RegistryValue)[0])"
+            $def = "$($_.DefaultRegistryValue)"
+            $def -ne '' -and $cur -ne '' -and $cur -ne $def -and $_.RegistryKeyword -notin $handled -and $_.RegistryKeyword -notlike '*Lso*'
+        })
+        if ($changed.Count -gt 0) {
+            $txt = ($changed | ForEach-Object { "{0}: {1}（既定 {2}）" -f $_.DisplayName, $_.DisplayValue, $_.DefaultDisplayValue }) -join ' / '
+            Write-Check '情報' "$($a.Name) で、ドライバーの既定と違う設定: $txt" '変えた覚えがなければ、デバイス マネージャー → ネットワーク アダプター → プロパティ → 詳細設定 で既定に戻せます。PC メーカーが出荷時に変えていることもあります。'
+        }
+    }
+
+    # 配信の最適化。3 = インターネット上の PC にも更新を配る。ポリシーがあればそちらが優先される
+    $doMode = Get-RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization' 'DODownloadMode'
+    if ($null -eq $doMode) {
+        $doMode = Get-RegValue 'Registry::HKEY_USERS\S-1-5-20\Software\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Settings' 'DownloadMode'
+    }
+    if ($doMode -eq 3) {
+        Write-Check '情報' 'Windows Update の「配信の最適化」が、インターネット上の PC にも更新を配る設定です。配っているあいだは上りの帯域を使います。' '設定 → Windows Update → 詳細オプション → 配信の最適化 で「ローカル ネットワーク上のデバイス」を選ぶか、オフにしてください。'
+    }
+
+    Write-Check '情報' 'P2P で対戦するゲームでつながりにくい・相手が限られるときは、ルーター側の設定が原因のことがあります。' 'メニューの 4（通信を測る）で、NAT の型と二重ルーターを確かめられます。ルーターの UPnP を有効にするか、ゲームの案内に従ってポートを開けてください。'
 
     $startup = @()
     foreach ($runKey in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Run', 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run')) {
@@ -938,66 +1012,586 @@ function Invoke-Restore {
     Invoke-Change $records 'Old'
 }
 
-function Measure-Target([string]$label, [string]$address, [int]$count) {
-    Write-Host "$label ($address) を $count 回測っています..."
-    $ping = New-Object System.Net.NetworkInformation.Ping
-    $rtts = New-Object System.Collections.Generic.List[double]
-    $lost = 0
-    for ($i = 0; $i -lt $count; $i++) {
-        try {
-            $r = $ping.Send($address, 1000)
-            if ($r.Status -eq 'Success') { $rtts.Add([double]$r.RoundtripTime) } else { $lost++ }
-        } catch { $lost++ }
-        Start-Sleep -Milliseconds 100
+# ---------------------------------------------------------------
+# 通信を測る
+# ---------------------------------------------------------------
+
+# いつもの値（中央値）よりこれ以上遅れた回を「跳ね」と数える。60fps の 1 フレームは約 16.7ms
+$SpikeMs = 17
+# 負荷をかけた測定で使う、Cloudflare の速度測定用サーバー
+$LoadHost = 'https://speed.cloudflare.com'
+
+function Get-Percentile([double[]]$sorted, [double]$p) {
+    if ($null -eq $sorted -or $sorted.Count -eq 0) { return $null }
+    $i = [int][math]::Ceiling($p / 100.0 * $sorted.Count) - 1
+    if ($i -lt 0) { $i = 0 }
+    if ($i -ge $sorted.Count) { $i = $sorted.Count - 1 }
+    return $sorted[$i]
+}
+
+function Get-MeasureTargets($route) {
+    if ($route -and $route.NextHop -and $route.NextHop -ne '0.0.0.0' -and $route.NextHop -notmatch ':') {
+        [pscustomobject]@{ Label = 'ルーター'; Address = $route.NextHop }
     }
-    $avg = $null; $min = $null; $max = $null; $jit = $null
-    if ($rtts.Count -gt 0) {
-        $m = $rtts | Measure-Object -Average -Minimum -Maximum
-        $avg = [math]::Round($m.Average, 1); $min = $m.Minimum; $max = $m.Maximum
-        $diffs = for ($i = 1; $i -lt $rtts.Count; $i++) { [math]::Abs($rtts[$i] - $rtts[$i - 1]) }
-        if ($diffs) { $jit = [math]::Round((@($diffs) | Measure-Object -Average).Average, 1) } else { $jit = 0 }
+    [pscustomobject]@{ Label = 'インターネット'; Address = '1.1.1.1' }
+}
+
+# 複数の相手を同じ瞬間に測る。跳ねやロスがどちら側で起きたかを、相手どうしで突き合わせられる。
+# 戻り値の Rtt は相手ごとの往復時間 (ms) の並びで、返事が無かった回は -1
+function Invoke-PingRun($targets, [int]$seconds, [string]$activity, [scriptblock]$stopWhen) {
+    $targets = @($targets)
+    $n = $targets.Count
+    $pings = New-Object object[] $n
+    $rtt = New-Object object[] $n
+    for ($k = 0; $k -lt $n; $k++) {
+        $pings[$k] = New-Object System.Net.NetworkInformation.Ping
+        $rtt[$k] = New-Object System.Collections.Generic.List[double]
     }
+    $at = New-Object System.Collections.Generic.List[double]
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $i = 0
+    while ($sw.Elapsed.TotalSeconds -lt $seconds) {
+        if ($stopWhen -and (& $stopWhen)) { break }
+        $t0 = $sw.Elapsed.TotalMilliseconds
+        $at.Add([math]::Round($t0 / 1000, 1))
+        $tasks = New-Object object[] $n
+        for ($k = 0; $k -lt $n; $k++) {
+            try { $tasks[$k] = $pings[$k].SendPingAsync([string]$targets[$k].Address, 1000) } catch { $tasks[$k] = $null }
+        }
+        for ($k = 0; $k -lt $n; $k++) {
+            $v = -1.0
+            $t = $tasks[$k]
+            if ($t) {
+                try {
+                    $t.Wait()
+                    if ("$($t.Result.Status)" -eq 'Success') { $v = [double]$t.Result.RoundtripTime }
+                } catch { }
+            }
+            $rtt[$k].Add($v)
+        }
+        $i++
+        if ($activity -and ($i % 10) -eq 0) {
+            $pct = [int][math]::Min(100, 100 * $sw.Elapsed.TotalSeconds / $seconds)
+            Write-Progress -Activity $activity -Status ("{0} / {1} 秒" -f [int]$sw.Elapsed.TotalSeconds, $seconds) -PercentComplete $pct
+        }
+        # 1 秒に約 10 回
+        $wait = 100 - ($sw.Elapsed.TotalMilliseconds - $t0)
+        if ($wait -ge 1) { Start-Sleep -Milliseconds ([int]$wait) }
+    }
+    if ($activity) { Write-Progress -Activity $activity -Completed }
+    foreach ($p in $pings) { $p.Dispose() }
+    [pscustomobject]@{ Rtt = $rtt; At = $at; Seconds = $sw.Elapsed.TotalSeconds }
+}
+
+function Get-PingStats([string]$label, [string]$address, $rtts) {
+    $all = @($rtts)
+    $ok = @($all | Where-Object { $_ -ge 0 })
+    $lost = $all.Count - $ok.Count
+    $run = 0; $maxRun = 0
+    foreach ($v in $all) {
+        if ($v -lt 0) { $run++; if ($run -gt $maxRun) { $maxRun = $run } } else { $run = 0 }
+    }
+    $avg = $null; $med = $null; $p95 = $null; $p99 = $null; $max = $null; $jit = $null; $limit = $null; $spikes = 0
+    if ($ok.Count -gt 0) {
+        $sorted = [double[]]@($ok | Sort-Object)
+        $avg = [math]::Round(($ok | Measure-Object -Average).Average, 1)
+        $med = Get-Percentile $sorted 50
+        $p95 = Get-Percentile $sorted 95
+        $p99 = Get-Percentile $sorted 99
+        $max = $sorted[$sorted.Count - 1]
+        $sum = 0.0
+        for ($i = 1; $i -lt $ok.Count; $i++) { $sum += [math]::Abs($ok[$i] - $ok[$i - 1]) }
+        $jit = if ($ok.Count -gt 1) { [math]::Round($sum / ($ok.Count - 1), 1) } else { 0 }
+        $limit = $med + $SpikeMs
+        $spikes = @($ok | Where-Object { $_ -ge $limit }).Count
+    }
+    $lossRate = if ($all.Count -gt 0) { 100.0 * $lost / $all.Count } else { 0 }
+    $spikeRate = if ($ok.Count -gt 0) { 100.0 * $spikes / $ok.Count } else { 0 }
     [pscustomobject]@{
-        相手 = $label; アドレス = $address; 平均ms = $avg; 最小ms = $min; 最大ms = $max
-        ゆらぎms = $jit; ロス率 = ('{0:0.0}%' -f (100.0 * $lost / $count)); LostRate = (100.0 * $lost / $count)
+        Label = $label; Address = $address; Count = $all.Count; Received = $ok.Count; Lost = $lost
+        LossRate = $lossRate; MaxLossRun = $maxRun; Avg = $avg; Median = $med; P95 = $p95; P99 = $p99; Max = $max
+        Jitter = $jit; Limit = $limit; Spikes = $spikes; SpikeRate = $spikeRate
     }
 }
 
-function Invoke-Measure {
-    $count = 100
-    $targets = @()
-    $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
-        Sort-Object RouteMetric | Select-Object -First 1
-    if ($route -and $route.NextHop -and $route.NextHop -ne '0.0.0.0') { $targets += , @('ルーター', $route.NextHop) }
-    $targets += , @('インターネット', '1.1.1.1')
+function Format-PingStats($stats) {
+    $rows = foreach ($s in @($stats)) {
+        [pscustomobject][ordered]@{
+            相手 = $s.Label; アドレス = $s.Address; 回数 = $s.Count; 平均ms = $s.Avg; 中央ms = $s.Median
+            '95%ms' = $s.P95; '99%ms' = $s.P99; 最大ms = $s.Max; ゆらぎms = $s.Jitter; 跳ね = $s.Spikes
+            ロス率 = ('{0:0.0}%' -f $s.LossRate); 連続ロス = $s.MaxLossRun
+        }
+    }
+    # -Property * を付けないと、表は 10 列までしか出ない
+    ($rows | Format-Table -Property * -AutoSize | Out-String -Width 200).Trim()
+}
 
-    $results = foreach ($t in $targets) { Measure-Target $t[0] $t[1] $count }
+# 跳ね・ロスが起きた回の番号
+function Get-BadIndexes($rtts, $limit) {
+    $all = @($rtts)
+    for ($i = 0; $i -lt $all.Count; $i++) {
+        if ($all[$i] -lt 0 -or ($null -ne $limit -and $all[$i] -ge $limit)) { $i }
+    }
+}
+
+# 跳ね・ロスが起きた時刻（開始からの秒）。1 秒以内に続いたものは 1 回にまとめる
+function Format-BadTimes($rtts, $limit, $at) {
+    $times = @(Get-BadIndexes $rtts $limit | ForEach-Object { $at[$_] })
+    if ($times.Count -eq 0) { return $null }
+    $groups = New-Object System.Collections.Generic.List[double]
+    $last = -100.0
+    foreach ($t in $times) {
+        if (($t - $last) -gt 1.0) { $groups.Add($t) }
+        $last = $t
+    }
+    $shown = @($groups | Select-Object -First 15 | ForEach-Object { '{0:0}' -f $_ })
+    $text = $shown -join ', '
+    if ($groups.Count -gt 15) { $text += " ほか $($groups.Count - 15) 回" }
+    return $text
+}
+
+# 測定のあいだに、このアダプターを流れた通信量を知るため
+function Get-AdapterBytes([string]$name) {
+    if (-not $name) { return $null }
+    $s = Get-NetAdapterStatistics -Name $name -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $s) { return $null }
+    [pscustomobject]@{ Rx = [double]$s.ReceivedBytes; Tx = [double]$s.SentBytes }
+}
+
+function Get-Mbps([double]$bytes, [double]$seconds) {
+    if ($seconds -le 0) { return 0 }
+    [math]::Round($bytes * 8 / 1000000 / $seconds, 1)
+}
+
+# 目安（厳密な基準ではない）。ロールバック方式の対戦では、平均の速さより揺れ・跳ね・ロスが効く
+function Get-MeasureVerdict($stats, $run) {
+    $notes = New-Object System.Collections.Generic.List[string]
+    $stats = @($stats)
+    $gwAt = -1; $netAt = -1
+    for ($k = 0; $k -lt $stats.Count; $k++) {
+        if ($stats[$k].Label -eq 'ルーター') { $gwAt = $k }
+        if ($stats[$k].Label -eq 'インターネット') { $netAt = $k }
+    }
+    $gw = if ($gwAt -ge 0) { $stats[$gwAt] } else { $null }
+    $net = if ($netAt -ge 0) { $stats[$netAt] } else { $null }
+
+    if ($net -and $net.Received -eq 0) {
+        $notes.Add('注意: インターネット (1.1.1.1) から返事がありません。つながっていないか、ping が止められています。')
+        return $notes
+    }
+    if ($gw -and $gw.Received -eq 0) {
+        $notes.Add('情報: ルーターが ping に答えないので、家の中とインターネット側を分けて判定できません。')
+        $gw = $null
+    }
+    $gwBad = $gw -and ($gw.LossRate -ge 0.2 -or $gw.Jitter -ge 3 -or $gw.SpikeRate -ge 0.5)
+    $netBad = $net -and ($net.LossRate -ge 0.2 -or $net.Jitter -ge 5 -or $net.SpikeRate -ge 0.5)
+
+    # インターネット側の跳ね・ロスのうち、同じ瞬間（前後 1 回を含む）にルーターでも起きていた割合
+    $overlap = $null
+    if ($gw -and $net) {
+        $gwIdx = @{}
+        foreach ($i in @(Get-BadIndexes $run.Rtt[$gwAt] $gw.Limit)) { $gwIdx[$i] = $true }
+        $netIdx = @(Get-BadIndexes $run.Rtt[$netAt] $net.Limit)
+        if ($netIdx.Count -gt 0) {
+            $hit = @($netIdx | Where-Object { $gwIdx.ContainsKey($_) -or $gwIdx.ContainsKey($_ - 1) -or $gwIdx.ContainsKey($_ + 1) }).Count
+            $overlap = $hit / $netIdx.Count
+        }
+    }
+
+    if ($gwBad -and $netBad) {
+        if ($null -eq $overlap -or $overlap -ge 0.5) {
+            $notes.Add('注意: ルーターまでの区間で既に揺れていて、インターネット側の揺れと同じタイミングで起きています。Wi-Fi、LAN ケーブル、ルーターなど家の中が原因の可能性が高いです。')
+        } else {
+            $notes.Add('注意: ルーターとインターネットの両方で揺れていますが、起きたタイミングは重なっていません。インターネット側（回線の混雑や、ルーターの先）が原因の可能性があります。')
+            $notes.Add('  ルーターは自分あての ping への返事を後回しにすることがあり、ルーターの揺れはそのせいかもしれません。')
+        }
+    } elseif ($gwBad) {
+        $notes.Add('情報: ルーターあての ping だけが揺れていて、インターネット側は安定しています。ルーターは自分あての ping への返事を後回しにすることがあるので、通信そのものには問題がない可能性が高いです。')
+    } elseif ($netBad) {
+        $notes.Add('注意: 家の中は安定していて、インターネット側で揺れています。回線の混雑や、ルーターの先が原因の可能性があります。')
+        $notes.Add('  格闘ゲームでは、少しのロスや跳ねでも巻き戻りやカクつきが増えます。時間を変えて測り直すと、混む時間帯かどうか分かります。')
+    } else {
+        $notes.Add('大きな問題は見えません。')
+    }
+    if ($net -and -not $netBad -and ($net.Spikes -gt 0 -or $net.Lost -gt 0)) {
+        $notes.Add("  インターネット側で、跳ねが $($net.Spikes) 回、ロスが $($net.Lost) 回ありました。回数が少ないので、たまたまの可能性もあります。")
+    }
+    return $notes
+}
+
+# ---- 負荷をかけた測定 ----
+
+# 別スレッドで動かす。$state.Stop が立つまで、ダウンロードまたはアップロードを繰り返す
+$LoadWorker = {
+    param($state, [int]$id, [string]$kind, [string]$url, [int]$repeat, [int]$size)
+    $buf = New-Object byte[] 16384
+    $total = 0.0
+    for ($n = 0; $n -lt $repeat -and -not $state.Stop; $n++) {
+        $req = $null
+        try {
+            $req = [System.Net.HttpWebRequest][System.Net.WebRequest]::Create($url)
+            $req.Timeout = 8000
+            $req.ReadWriteTimeout = 5000
+            $req.UserAgent = 'FGNetCheck'
+            if ($kind -eq 'up') {
+                $req.Method = 'POST'
+                $req.ContentType = 'application/octet-stream'
+                $req.AllowWriteStreamBuffering = $false
+                $req.ContentLength = $size
+                $s = $req.GetRequestStream()
+                $left = $size
+                while ($left -gt 0 -and -not $state.Stop) {
+                    $c = [math]::Min($left, $buf.Length)
+                    $s.Write($buf, 0, $c)
+                    $left -= $c
+                    $total += $c
+                    $state["bytes$id"] = $total
+                }
+                if ($state.Stop) { $req.Abort(); break }
+                $s.Close()
+                $req.GetResponse().Close()
+            } else {
+                $resp = $req.GetResponse()
+                $s = $resp.GetResponseStream()
+                while (-not $state.Stop) {
+                    $c = $s.Read($buf, 0, $buf.Length)
+                    if ($c -le 0) { break }
+                    $total += $c
+                    $state["bytes$id"] = $total
+                }
+                if ($state.Stop) { $req.Abort(); break }
+                $resp.Close()
+            }
+        } catch {
+            $state["err$id"] = 1 + [int]$state["err$id"]
+            if ($req) { try { $req.Abort() } catch { } }
+            Start-Sleep -Milliseconds 300
+        }
+    }
+}
+
+function Start-Load([string]$kind, [int]$streams, [int]$repeat, [int]$size) {
+    $state = [hashtable]::Synchronized(@{ Stop = $false })
+    $url = if ($kind -eq 'up') { "$LoadHost/__up" } else { "$LoadHost/__down?bytes=$size" }
+    $workers = for ($w = 0; $w -lt $streams; $w++) {
+        $ps = [powershell]::Create()
+        [void]$ps.AddScript($LoadWorker.ToString()).AddArgument($state).AddArgument($w).AddArgument($kind).AddArgument($url).AddArgument($repeat).AddArgument($size)
+        [pscustomobject]@{ Ps = $ps; Handle = $ps.BeginInvoke() }
+    }
+    [pscustomobject]@{ State = $state; Workers = @($workers); Streams = $streams }
+}
+
+function Get-LoadBytes($load) {
+    $sum = 0.0
+    for ($w = 0; $w -lt $load.Streams; $w++) { $sum += [double]$load.State["bytes$w"] }
+    $sum
+}
+
+function Test-LoadDone($load) {
+    @($load.Workers | Where-Object { -not $_.Handle.IsCompleted }).Count -eq 0
+}
+
+function Stop-Load($load) {
+    $load.State.Stop = $true
+    foreach ($w in $load.Workers) {
+        try {
+            if ($w.Handle.AsyncWaitHandle.WaitOne(6000)) { $w.Ps.Dispose() } else { [void]$w.Ps.BeginStop($null, $null) }
+        } catch { }
+    }
+}
+
+# 回線をわざと混ませて、そのときの ping を空いているときと比べる（Bufferbloat の実測）
+function Invoke-LoadMeasure($targets, $log) {
     Write-Host ''
-    $text = $results | Select-Object 相手, アドレス, 平均ms, 最小ms, 最大ms, ゆらぎms, ロス率 |
-        Format-Table -AutoSize | Out-String -Width 200
+    Write-Host '負荷をかけた測定をします。' -ForegroundColor Cyan
+    Write-Host '  ・ダウンロードとアップロードで回線をわざと混ませ、そのときの ping を比べます（約 40 秒）。'
+    Write-Host '  ・通信量を使います（最大で 下り 約 300MB、上り 約 100MB。遅い回線ではもっと少なくなります）。'
+    Write-Host '    テザリングや、通信量に上限のある回線では実行しないでください。'
+    Write-Host '  ・Cloudflare の速度測定用サーバー (speed.cloudflare.com) に接続します。'
+    Write-Host '  ・家族が使っている通信も、測っているあいだは遅くなります。'
+    if ((Read-Host '進めますか？ (y/n)') -ne 'y') { Write-Host '中止しました。'; return $false }
+
+    # Windows PowerShell 5.1 は、同じ相手への同時接続が 2 本までで、古い環境では TLS 1.2 が既定で使われない
+    try {
+        [System.Net.ServicePointManager]::DefaultConnectionLimit = 16
+        [System.Net.ServicePointManager]::Expect100Continue = $false
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+    } catch { }
+
+    $netAt = @($targets).Count - 1
+    Write-Host '1/3 何もしていないときを測っています（約 10 秒）...'
+    $idleRun = Invoke-PingRun $targets 10 '何もしていないとき'
+    $idle = Get-PingStats '負荷なし' '1.1.1.1' $idleRun.Rtt[$netAt]
+    if ($idle.Received -eq 0) {
+        Write-Host '  インターネット (1.1.1.1) から返事がないので、測れません。' -ForegroundColor Yellow
+        return $false
+    }
+
+    $phases = @(
+        @{ Kind = 'down'; Name = 'ダウンロード中'; Step = '2/3'; Repeat = 3; Size = 25000000 },
+        @{ Kind = 'up';   Name = 'アップロード中'; Step = '3/3'; Repeat = 3; Size = 8000000 }
+    )
+    $rows = @($idle)
+    $notes = New-Object System.Collections.Generic.List[string]
+    foreach ($ph in $phases) {
+        Write-Host ("{0} {1}を測っています（最大 約 14 秒）..." -f $ph.Step, $ph.Name)
+        $load = Start-Load $ph.Kind 4 $ph.Repeat $ph.Size
+        try {
+            # 通信が速度に乗るまで少し待つ
+            Start-Sleep -Milliseconds 1500
+            $b0 = Get-LoadBytes $load
+            $run = Invoke-PingRun $targets 12 $ph.Name { Test-LoadDone $load }
+            $b1 = Get-LoadBytes $load
+        } finally {
+            Stop-Load $load
+        }
+        $mbps = Get-Mbps ($b1 - $b0) $run.Seconds
+        $st = Get-PingStats $ph.Name '1.1.1.1' $run.Rtt[$netAt]
+        $rows += $st
+        $cap = 4.0 * $ph.Repeat * $ph.Size
+        if ($st.Count -lt 20 -and $b1 -ge 0.9 * $cap) {
+            $notes.Add("情報: $($ph.Name): 用意した通信量をすぐに送り終えたため、判定できるだけの回数を測れませんでした。回線が十分に速いときに起きます。")
+            continue
+        }
+        if ($mbps -lt 0.5 -or $st.Count -lt 20) {
+            $notes.Add("情報: $($ph.Name): 負荷を十分にかけられませんでした（測定用のサーバーに接続できないか、断られました）。この項目は判定できません。")
+            continue
+        }
+        $inc = [math]::Round($st.Median - $idle.Median, 1)
+        $inc95 = [math]::Round($st.P95 - $idle.P95, 1)
+        $head = "$($ph.Name)（約 ${mbps}Mbps）: ping の中央値が $($idle.Median) → $($st.Median)ms、95% の値が $($idle.P95) → $($st.P95)ms"
+        if ($st.Lost -gt $idle.Lost) { $head += "。ロスも $($st.Lost) 回" }
+        if ($inc -ge 30 -or $inc95 -ge 60) {
+            $notes.Add("注意: $head。回線が混むと大きく遅れます（Bufferbloat）。")
+        } elseif ($inc -ge 5 -or $inc95 -ge 20) {
+            $notes.Add("情報: $head。回線が混むと少し遅れます。")
+        } else {
+            $notes.Add("OK: $head。回線が混んでも、ほとんど遅れません。")
+        }
+    }
+
+    $text = Format-PingStats $rows
+    Write-Host ''
     Write-Host $text
-
-    $when = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $via = if ($route) { $route.InterfaceAlias } else { '?' }
-    Add-Content -Path $MeasureLog -Encoding UTF8 -Value ("==== $when  経路: $via" + "`r`n" + $text.Trim())
-    Write-Host "結果を $MeasureLog に追記しました（設定の前後で比べられます）。"
-
-    # 目安（厳密な基準ではない）。ロールバック方式の対戦では、平均の速さより揺れとロスが効く
-    $gw = $results | Where-Object { $_.相手 -eq 'ルーター' }
-    $net = $results | Where-Object { $_.相手 -eq 'インターネット' }
     Write-Host ''
     Write-Host '■ 目安' -ForegroundColor Cyan
-    if ($gw -and ($gw.LostRate -gt 0 -or $gw.ゆらぎms -ge 3)) {
-        Write-Host '  ルーターまでで既に揺れています。Wi-Fi や LAN ケーブルなど家の中が原因の可能性が高いです。' -ForegroundColor Yellow
-    } elseif ($net -and ($net.LostRate -gt 0 -or $net.ゆらぎms -ge 5)) {
-        Write-Host '  家の中は安定していて、インターネット側で揺れています。回線の混雑や、ルーターの先が原因の可能性があります。' -ForegroundColor Yellow
-        Write-Host '  格闘ゲームでは、少しのロスや揺れでも巻き戻りやカクつきが増えます。時間を変えて測り直すと、混む時間帯かどうか分かります。'
-    } else {
-        Write-Host '  大きな問題は見えません。'
+    foreach ($n in $notes) {
+        $color = if ($n -like '注意*') { 'Yellow' } elseif ($n -like 'OK*') { 'Green' } else { 'Gray' }
+        Write-Host "  $n" -ForegroundColor $color
     }
-    Write-Host '  ここで測れるのは自分の側だけです。対戦のラグは、相手の回線や距離でも決まります。'
-    Write-Host '  ダウンロード中や家族の動画再生中だけ遅いなら、ルーター側の詰まり (Bufferbloat) の可能性があります。'
-    Write-Host '  確認: https://www.waveform.com/tools/bufferbloat'
+    if (@($notes | Where-Object { $_ -like '*回線が混むと*' }).Count -gt 0) {
+        Write-Host '  対策: ルーターに QoS や SQM（fq_codel、CAKE など）の機能があれば有効にしてください。'
+        Write-Host '        無ければ、対戦のあいだは他の機器や PC のダウンロード・アップロード（クラウドの同期、動画の投稿、ゲームの更新）を止めてください。'
+    }
+    $log.Add($text)
+    foreach ($n in $notes) { $log.Add($n) }
+    return $true
+}
+
+# ---- P2P 対戦のつながりやすさ ----
+
+# STUN (RFC 5389) で、外から見た自分の IP アドレスとポートを尋ねる
+function Get-StunMapping($udp, [string]$hostName, [int]$port) {
+    try {
+        $ip = [System.Net.Dns]::GetHostAddresses($hostName) |
+            Where-Object { "$($_.AddressFamily)" -eq 'InterNetwork' } | Select-Object -First 1
+        if (-not $ip) { return $null }
+        $req = New-Object byte[] 20
+        $req[1] = 1                                                      # Binding Request。属性なし
+        $req[4] = 0x21; $req[5] = 0x12; $req[6] = 0xA4; $req[7] = 0x42   # magic cookie
+        $tid = New-Object byte[] 12
+        (New-Object System.Random).NextBytes($tid)
+        [Array]::Copy($tid, 0, $req, 8, 12)
+        $ep = New-Object System.Net.IPEndPoint $ip, $port
+        for ($try = 0; $try -lt 2; $try++) {
+            [void]$udp.Send($req, $req.Length, $ep)
+            # 前の問い合わせへの遅れた返事が混ざることがあるので、番号が合うものを探す
+            for ($r = 0; $r -lt 3; $r++) {
+                $res = $null
+                try {
+                    $from = New-Object System.Net.IPEndPoint ([System.Net.IPAddress]::Any), 0
+                    $res = $udp.Receive([ref]$from)
+                } catch { break }
+                $m = ConvertFrom-StunResponse $res $tid
+                if ($m) { return $m }
+            }
+        }
+    } catch { }
+    return $null
+}
+
+function ConvertFrom-StunResponse([byte[]]$res, [byte[]]$tid) {
+    if ($null -eq $res -or $res.Length -lt 20) { return $null }
+    if ($res[0] -ne 1 -or $res[1] -ne 1) { return $null }               # Binding Success Response
+    for ($i = 0; $i -lt 12; $i++) { if ($res[8 + $i] -ne $tid[$i]) { return $null } }
+    $end = [math]::Min($res.Length, 20 + ($res[2] * 256 + $res[3]))
+    $pos = 20
+    $plain = $null
+    while ($pos + 4 -le $end) {
+        $type = $res[$pos] * 256 + $res[$pos + 1]
+        $len = $res[$pos + 2] * 256 + $res[$pos + 3]
+        $ok = ($pos + 4 + $len -le $end) -and $len -ge 8 -and $res[$pos + 5] -eq 1   # IPv4
+        if ($ok -and $type -eq 0x0020) {
+            # XOR-MAPPED-ADDRESS。magic cookie と XOR されている
+            $p = ($res[$pos + 6] * 256 + $res[$pos + 7]) -bxor 0x2112
+            $a = '{0}.{1}.{2}.{3}' -f ($res[$pos + 8] -bxor 0x21), ($res[$pos + 9] -bxor 0x12), ($res[$pos + 10] -bxor 0xA4), ($res[$pos + 11] -bxor 0x42)
+            return [pscustomobject]@{ Address = $a; Port = [int]$p }
+        }
+        if ($ok -and $type -eq 0x0001) {
+            $plain = [pscustomobject]@{
+                Address = ('{0}.{1}.{2}.{3}' -f $res[$pos + 8], $res[$pos + 9], $res[$pos + 10], $res[$pos + 11])
+                Port = [int]($res[$pos + 6] * 256 + $res[$pos + 7])
+            }
+        }
+        $pos += 4 + $len + ((4 - ($len % 4)) % 4)
+    }
+    return $plain
+}
+
+function Get-AddressKind([string]$address) {
+    $o = @($address -split '\.' | ForEach-Object { [int]$_ })
+    if ($o.Count -ne 4) { return 'other' }
+    if ($o[0] -eq 10 -or ($o[0] -eq 172 -and $o[1] -ge 16 -and $o[1] -le 31) -or ($o[0] -eq 192 -and $o[1] -eq 168)) { return 'private' }
+    if ($o[0] -eq 100 -and $o[1] -ge 64 -and $o[1] -le 127) { return 'shared' }   # 100.64.0.0/10 (CGNAT)
+    return 'public'
+}
+
+# 1.1.1.1 へ向かう経路の、ttl 番目の機器のアドレス
+function Get-HopAddress([int]$ttl) {
+    $ping = New-Object System.Net.NetworkInformation.Ping
+    try {
+        $opt = New-Object System.Net.NetworkInformation.PingOptions $ttl, $true
+        for ($try = 0; $try -lt 2; $try++) {
+            try {
+                $r = $ping.Send('1.1.1.1', 1000, (New-Object byte[] 32), $opt)
+                if ("$($r.Status)" -in @('TtlExpired', 'Success') -and $r.Address) { return "$($r.Address)" }
+            } catch { }
+        }
+    } finally { $ping.Dispose() }
+    return $null
+}
+
+function New-Note([string]$level, [string]$text, [string]$fix) {
+    [pscustomobject]@{ Level = $level; Text = $text; Fix = $fix }
+}
+
+function Get-NatReport {
+    $out = New-Object System.Collections.Generic.List[object]
+    $a = $null; $b = $null
+    $udp = $null
+    try {
+        $udp = New-Object System.Net.Sockets.UdpClient ([System.Net.Sockets.AddressFamily]::InterNetwork)
+        $udp.Client.ReceiveTimeout = 1500
+        # 同じソケット（同じ内側のポート）から 2 つの相手に尋ね、外側のポートが同じかを見る
+        $a = Get-StunMapping $udp 'stun.l.google.com' 19302
+        $b = Get-StunMapping $udp 'stun.cloudflare.com' 3478
+    } catch { } finally { if ($udp) { $udp.Close() } }
+
+    if ($a -and $b) {
+        if ($a.Address -eq $b.Address -and $a.Port -eq $b.Port) {
+            $out.Add((New-Note 'OK' '相手が変わっても、外から見たポートが変わらない型の NAT です。P2P の対戦でつながりやすい型です。'))
+        } else {
+            $out.Add((New-Note '注意' "相手ごとに、外から見たアドレスやポートが変わる型の NAT（対称 NAT）です（$($a.Address):$($a.Port) と $($b.Address):$($b.Port)）。P2P の対戦で、つながらない相手が出たり、中継サーバー経由になって遅延が増えたりします。" `
+                'ルーターが 2 台重なっているなら、1 台をブリッジ（アクセスポイント）モードにしてください。集合住宅の共有回線、モバイル回線、VPN ではこの型になりやすく、その場合は PC 側では直せません。'))
+        }
+    } elseif ($a -or $b) {
+        $out.Add((New-Note '情報' '確認用のサーバーの片方からしか返事がなく、NAT の型は判定できませんでした。'))
+    } else {
+        $out.Add((New-Note '情報' 'NAT の型は確認できませんでした（UDP が外へ出られないか、確認用のサーバーに届きません）。'))
+    }
+
+    $hop1 = Get-HopAddress 1
+    $hop2 = Get-HopAddress 2
+    if ($hop1 -and $hop2 -and (Get-AddressKind $hop1) -eq 'private') {
+        $kind2 = Get-AddressKind $hop2
+        if ($kind2 -eq 'private') {
+            $out.Add((New-Note '情報' "ルーター ($hop1) の先にも、プライベート アドレスの機器 ($hop2) があります。ルーターが 2 台重なっている（二重ルーター）か、プロバイダーの網の中の機器です。" `
+                'ONU やホームゲートウェイにもルーター機能があるなら、どちらか 1 台だけをルーターにすると、P2P の対戦がつながりやすくなります。つながりにくさを感じていなければ、そのままで構いません。'))
+        } elseif ($kind2 -eq 'shared') {
+            $out.Add((New-Note '情報' "ルーターの先が、プロバイダー側でアドレスを共有する区間 ($hop2) です（CGNAT）。ポートを開ける設定はできません。"))
+        }
+    }
+    $out
+}
+
+function Invoke-Measure([string]$kind) {
+    if (-not $kind) {
+        Write-Host ''
+        Write-Host '  1. 短い測定（約 20 秒）'
+        Write-Host '  2. 長い測定（約 3 分。たまに起きる跳ねを見つけます。対戦と同じ環境で測るのに向きます）'
+        Write-Host '  3. 負荷をかけた測定（約 40 秒。回線が混んだときの遅れを測ります。通信量を使います）'
+        $c = "$(Read-Host '番号 (Enter で 1)')".Trim()
+        $kind = switch ($c) { '' { 'Short' } '1' { 'Short' } '2' { 'Long' } '3' { 'Load' } default { $null } }
+        if (-not $kind) { Write-Host '1〜3 を入れてください。'; return }
+    }
+    $route = Get-InternetRoute
+    $targets = @(Get-MeasureTargets $route)
+    $via = if ($route) { $route.Alias } else { '?' }
+    $kindName = switch ($kind) { 'Long' { '長い測定' } 'Load' { '負荷をかけた測定' } default { '短い測定' } }
+    $log = New-Object System.Collections.Generic.List[string]
+
+    if ($kind -eq 'Load') {
+        if (-not (Invoke-LoadMeasure $targets $log)) { return }
+    } else {
+        $seconds = if ($kind -eq 'Long') { 180 } else { 20 }
+        $names = (@($targets) | ForEach-Object { "$($_.Label) ($($_.Address))" }) -join ' と '
+        Write-Host "$names を同時に、約 $seconds 秒測っています..."
+        $before = Get-AdapterBytes $via
+        $run = Invoke-PingRun $targets $seconds '通信を測っています'
+        $after = Get-AdapterBytes $via
+        $stats = @(for ($k = 0; $k -lt $targets.Count; $k++) { Get-PingStats $targets[$k].Label $targets[$k].Address $run.Rtt[$k] })
+
+        $text = Format-PingStats $stats
+        Write-Host ''
+        Write-Host $text
+        Write-Host "  跳ね = いつもの値（中央値）より 1 フレーム（約 ${SpikeMs}ms）以上遅れた回数。95%ms = 100 回のうち 95 回はこの値以下。"
+        $log.Add($text)
+
+        for ($k = 0; $k -lt $targets.Count; $k++) {
+            # 1 回も返事が無い相手は、時刻を並べても意味がない
+            $times = if ($stats[$k].Received -gt 0) { Format-BadTimes $run.Rtt[$k] $stats[$k].Limit $run.At } else { $null }
+            if ($times) {
+                $line = "$($targets[$k].Label)で跳ね・ロスが起きた時刻（開始からの秒）: $times"
+                Write-Host "  $line"
+                $log.Add($line)
+            }
+        }
+
+        Write-Host ''
+        Write-Host '■ 目安' -ForegroundColor Cyan
+        foreach ($n in @(Get-MeasureVerdict $stats $run)) {
+            $color = if ($n -like '注意*') { 'Yellow' } else { 'Gray' }
+            Write-Host "  $n" -ForegroundColor $color
+            $log.Add($n)
+        }
+        if ($kind -eq 'Long') {
+            Write-Host '  跳ねがほぼ同じ間隔で並んでいるなら、Wi-Fi の周辺スキャンなど、決まった間隔で動く処理が原因の可能性があります。'
+        }
+        if ($before -and $after) {
+            $rx = Get-Mbps ($after.Rx - $before.Rx) $run.Seconds
+            $tx = Get-Mbps ($after.Tx - $before.Tx) $run.Seconds
+            if ($rx -ge 1 -or $tx -ge 0.5) {
+                $line = "情報: 測っているあいだ、この PC でほかの通信が流れていました（下り 約 ${rx}Mbps、上り 約 ${tx}Mbps）。結果が悪く出ることがあります。"
+                Write-Host "  $line"
+                $log.Add($line)
+            }
+        }
+        Write-Host '  ここで測れるのは自分の側だけです。対戦のラグは、相手の回線や距離でも決まります。'
+        Write-Host '  ダウンロード中や家族の動画再生中だけ遅いなら、ルーター側の詰まり (Bufferbloat) の可能性があります。4 → 3 の「負荷をかけた測定」で確かめられます。'
+    }
+
+    Write-Host ''
+    Write-Host '■ P2P 対戦のつながりやすさ（目安）' -ForegroundColor Cyan
+    foreach ($n in @(Get-NatReport)) {
+        Write-Check $n.Level $n.Text $n.Fix
+        $log.Add("[$($n.Level)] $($n.Text)")
+    }
+    Write-Host '  IPv4 over IPv6（v6プラス、transix など）の回線では、使えるポートが限られたり、ポートを開けられなかったりします。'
+
+    $when = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    Add-Content -Path $MeasureLog -Encoding UTF8 -Value ("==== $when  経路: $via  $kindName" + "`r`n" + ($log -join "`r`n"))
+    Write-Host ''
+    Write-Host "結果を $MeasureLog に追記しました（設定の前後で比べられます）。"
 }
 
 function Show-Menu {
@@ -1007,7 +1601,7 @@ function Show-Menu {
         Write-Host '  1. 診断する（設定・手作業の案内・セキュリティの確認。何も変えません）'
         Write-Host '  2. おすすめ設定を入れる（変更前の値を保存します）'
         Write-Host '  3. 元に戻す（保存した値に戻します）'
-        Write-Host '  4. 通信を測る（ping、約 20 秒）'
+        Write-Host '  4. 通信を測る（短い測定・長い測定・負荷をかけた測定）'
         Write-Host '  Q. 終わる'
         $c = Read-Host '番号を入れて Enter'
         try {
@@ -1015,7 +1609,7 @@ function Show-Menu {
                 '1' { Invoke-Diagnose }
                 '2' { Invoke-Apply }
                 '3' { Invoke-Restore }
-                '4' { Invoke-Measure }
+                '4' { Invoke-Measure '' }
                 'q' { return }
                 default { Write-Host '1〜4 か Q を入れてください。' }
             }
@@ -1030,5 +1624,5 @@ switch ($Mode) {
     'Diagnose' { Invoke-Diagnose }
     'Apply'    { Invoke-Apply }
     'Restore'  { Invoke-Restore }
-    'Measure'  { Invoke-Measure }
+    'Measure'  { Invoke-Measure $Measure }
 }
