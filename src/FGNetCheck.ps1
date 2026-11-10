@@ -5,7 +5,7 @@ FGNetCheck.ps1  格闘ゲーム向け PC 設定チェック
   2. 適用      おすすめ設定を入れる。変更前の値を backup フォルダに保存する
   3. 元に戻す  保存した値に戻す
   4. 測定      ping で遅延・ゆらぎ・跳ね・ロスを測り、measure_log.txt に残す
-               （短い測定・長い測定・負荷をかけた測定。P2P のつながりやすさも確かめる）
+               （短い測定・長い測定。P2P のつながりやすさも確かめる）
 
 配布版は FGNetCheck.bat の 1 ファイル（build.ps1 がこのファイルを bat に埋め込む）。
 bat から動くときは -Launcher に bat のパスが渡り、backup などは bat の隣にできる。
@@ -16,7 +16,7 @@ param(
     [string]$BackupFile,
     [string]$Launcher,
     # -Mode Measure のときの測り方。メニューから選んだときは画面で尋ねる
-    [ValidateSet('Short', 'Long', 'Load')]
+    [ValidateSet('Short', 'Long')]
     [string]$Measure = 'Short'
 )
 
@@ -1018,8 +1018,6 @@ function Invoke-Restore {
 
 # いつもの値（中央値）よりこれ以上遅れた回を「跳ね」と数える。60fps の 1 フレームは約 16.7ms
 $SpikeMs = 17
-# 負荷をかけた測定で使う、Cloudflare の速度測定用サーバー
-$LoadHost = 'https://speed.cloudflare.com'
 
 function Get-Percentile([double[]]$sorted, [double]$p) {
     if ($null -eq $sorted -or $sorted.Count -eq 0) { return $null }
@@ -1038,7 +1036,7 @@ function Get-MeasureTargets($route) {
 
 # 複数の相手を同じ瞬間に測る。跳ねやロスがどちら側で起きたかを、相手どうしで突き合わせられる。
 # 戻り値の Rtt は相手ごとの往復時間 (ms) の並びで、返事が無かった回は -1
-function Invoke-PingRun($targets, [int]$seconds, [string]$activity, [scriptblock]$stopWhen) {
+function Invoke-PingRun($targets, [int]$seconds, [string]$activity) {
     $targets = @($targets)
     $n = $targets.Count
     $pings = New-Object object[] $n
@@ -1051,7 +1049,6 @@ function Invoke-PingRun($targets, [int]$seconds, [string]$activity, [scriptblock
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $i = 0
     while ($sw.Elapsed.TotalSeconds -lt $seconds) {
-        if ($stopWhen -and (& $stopWhen)) { break }
         $t0 = $sw.Elapsed.TotalMilliseconds
         $at.Add([math]::Round($t0 / 1000, 1))
         $tasks = New-Object object[] $n
@@ -1219,175 +1216,6 @@ function Get-MeasureVerdict($stats, $run) {
     return $notes
 }
 
-# ---- 負荷をかけた測定 ----
-
-# 別スレッドで動かす。$state.Stop が立つまで、ダウンロードまたはアップロードを繰り返す
-$LoadWorker = {
-    param($state, [int]$id, [string]$kind, [string]$url, [int]$repeat, [int]$size)
-    $buf = New-Object byte[] 16384
-    $total = 0.0
-    for ($n = 0; $n -lt $repeat -and -not $state.Stop; $n++) {
-        $req = $null
-        try {
-            $req = [System.Net.HttpWebRequest][System.Net.WebRequest]::Create($url)
-            $req.Timeout = 8000
-            $req.ReadWriteTimeout = 5000
-            $req.UserAgent = 'FGNetCheck'
-            if ($kind -eq 'up') {
-                $req.Method = 'POST'
-                $req.ContentType = 'application/octet-stream'
-                $req.AllowWriteStreamBuffering = $false
-                $req.ContentLength = $size
-                $s = $req.GetRequestStream()
-                $left = $size
-                while ($left -gt 0 -and -not $state.Stop) {
-                    $c = [math]::Min($left, $buf.Length)
-                    $s.Write($buf, 0, $c)
-                    $left -= $c
-                    $total += $c
-                    $state["bytes$id"] = $total
-                }
-                if ($state.Stop) { $req.Abort(); break }
-                $s.Close()
-                $req.GetResponse().Close()
-            } else {
-                $resp = $req.GetResponse()
-                $s = $resp.GetResponseStream()
-                while (-not $state.Stop) {
-                    $c = $s.Read($buf, 0, $buf.Length)
-                    if ($c -le 0) { break }
-                    $total += $c
-                    $state["bytes$id"] = $total
-                }
-                if ($state.Stop) { $req.Abort(); break }
-                $resp.Close()
-            }
-        } catch {
-            $state["err$id"] = 1 + [int]$state["err$id"]
-            if ($req) { try { $req.Abort() } catch { } }
-            Start-Sleep -Milliseconds 300
-        }
-    }
-}
-
-function Start-Load([string]$kind, [int]$streams, [int]$repeat, [int]$size) {
-    $state = [hashtable]::Synchronized(@{ Stop = $false })
-    $url = if ($kind -eq 'up') { "$LoadHost/__up" } else { "$LoadHost/__down?bytes=$size" }
-    $workers = for ($w = 0; $w -lt $streams; $w++) {
-        $ps = [powershell]::Create()
-        [void]$ps.AddScript($LoadWorker.ToString()).AddArgument($state).AddArgument($w).AddArgument($kind).AddArgument($url).AddArgument($repeat).AddArgument($size)
-        [pscustomobject]@{ Ps = $ps; Handle = $ps.BeginInvoke() }
-    }
-    [pscustomobject]@{ State = $state; Workers = @($workers); Streams = $streams }
-}
-
-function Get-LoadBytes($load) {
-    $sum = 0.0
-    for ($w = 0; $w -lt $load.Streams; $w++) { $sum += [double]$load.State["bytes$w"] }
-    $sum
-}
-
-function Test-LoadDone($load) {
-    @($load.Workers | Where-Object { -not $_.Handle.IsCompleted }).Count -eq 0
-}
-
-function Stop-Load($load) {
-    $load.State.Stop = $true
-    foreach ($w in $load.Workers) {
-        try {
-            if ($w.Handle.AsyncWaitHandle.WaitOne(6000)) { $w.Ps.Dispose() } else { [void]$w.Ps.BeginStop($null, $null) }
-        } catch { }
-    }
-}
-
-# 回線をわざと混ませて、そのときの ping を空いているときと比べる（Bufferbloat の実測）
-function Invoke-LoadMeasure($targets, $log) {
-    Write-Host ''
-    Write-Host '負荷をかけた測定をします。' -ForegroundColor Cyan
-    Write-Host '  ・ダウンロードとアップロードで回線をわざと混ませ、そのときの ping を比べます（約 40 秒）。'
-    Write-Host '  ・通信量を使います（最大で 下り 約 300MB、上り 約 100MB。遅い回線ではもっと少なくなります）。'
-    Write-Host '    テザリングや、通信量に上限のある回線では実行しないでください。'
-    Write-Host '  ・Cloudflare の速度測定用サーバー (speed.cloudflare.com) に接続します。'
-    Write-Host '  ・家族が使っている通信も、測っているあいだは遅くなります。'
-    if ((Read-Host '進めますか？ (y/n)') -ne 'y') { Write-Host '中止しました。'; return $false }
-
-    # Windows PowerShell 5.1 は、同じ相手への同時接続が 2 本までで、古い環境では TLS 1.2 が既定で使われない
-    try {
-        [System.Net.ServicePointManager]::DefaultConnectionLimit = 16
-        [System.Net.ServicePointManager]::Expect100Continue = $false
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
-    } catch { }
-
-    $netAt = @($targets).Count - 1
-    Write-Host '1/3 何もしていないときを測っています（約 10 秒）...'
-    $idleRun = Invoke-PingRun $targets 10 '何もしていないとき'
-    $idle = Get-PingStats '負荷なし' '1.1.1.1' $idleRun.Rtt[$netAt]
-    if ($idle.Received -eq 0) {
-        Write-Host '  インターネット (1.1.1.1) から返事がないので、測れません。' -ForegroundColor Yellow
-        return $false
-    }
-
-    $phases = @(
-        @{ Kind = 'down'; Name = 'ダウンロード中'; Step = '2/3'; Repeat = 3; Size = 25000000 },
-        @{ Kind = 'up';   Name = 'アップロード中'; Step = '3/3'; Repeat = 3; Size = 8000000 }
-    )
-    $rows = @($idle)
-    $notes = New-Object System.Collections.Generic.List[string]
-    foreach ($ph in $phases) {
-        Write-Host ("{0} {1}を測っています（最大 約 14 秒）..." -f $ph.Step, $ph.Name)
-        $load = Start-Load $ph.Kind 4 $ph.Repeat $ph.Size
-        try {
-            # 通信が速度に乗るまで少し待つ
-            Start-Sleep -Milliseconds 1500
-            $b0 = Get-LoadBytes $load
-            $run = Invoke-PingRun $targets 12 $ph.Name { Test-LoadDone $load }
-            $b1 = Get-LoadBytes $load
-        } finally {
-            Stop-Load $load
-        }
-        $mbps = Get-Mbps ($b1 - $b0) $run.Seconds
-        $st = Get-PingStats $ph.Name '1.1.1.1' $run.Rtt[$netAt]
-        $rows += $st
-        $cap = 4.0 * $ph.Repeat * $ph.Size
-        if ($st.Count -lt 20 -and $b1 -ge 0.9 * $cap) {
-            $notes.Add("情報: $($ph.Name): 用意した通信量をすぐに送り終えたため、判定できるだけの回数を測れませんでした。回線が十分に速いときに起きます。")
-            continue
-        }
-        if ($mbps -lt 0.5 -or $st.Count -lt 20) {
-            $notes.Add("情報: $($ph.Name): 負荷を十分にかけられませんでした（測定用のサーバーに接続できないか、断られました）。この項目は判定できません。")
-            continue
-        }
-        $inc = [math]::Round($st.Median - $idle.Median, 1)
-        $inc95 = [math]::Round($st.P95 - $idle.P95, 1)
-        $head = "$($ph.Name)（約 ${mbps}Mbps）: ping の中央値が $($idle.Median) → $($st.Median)ms、95% の値が $($idle.P95) → $($st.P95)ms"
-        if ($st.Lost -gt $idle.Lost) { $head += "。ロスも $($st.Lost) 回" }
-        if ($inc -ge 30 -or $inc95 -ge 60) {
-            $notes.Add("注意: $head。回線が混むと大きく遅れます（Bufferbloat）。")
-        } elseif ($inc -ge 5 -or $inc95 -ge 20) {
-            $notes.Add("情報: $head。回線が混むと少し遅れます。")
-        } else {
-            $notes.Add("OK: $head。回線が混んでも、ほとんど遅れません。")
-        }
-    }
-
-    $text = Format-PingStats $rows
-    Write-Host ''
-    Write-Host $text
-    Write-Host ''
-    Write-Host '■ 目安' -ForegroundColor Cyan
-    foreach ($n in $notes) {
-        $color = if ($n -like '注意*') { 'Yellow' } elseif ($n -like 'OK*') { 'Green' } else { 'Gray' }
-        Write-Host "  $n" -ForegroundColor $color
-    }
-    if (@($notes | Where-Object { $_ -like '*回線が混むと*' }).Count -gt 0) {
-        Write-Host '  対策: ルーターに QoS や SQM（fq_codel、CAKE など）の機能があれば有効にしてください。'
-        Write-Host '        無ければ、対戦のあいだは他の機器や PC のダウンロード・アップロード（クラウドの同期、動画の投稿、ゲームの更新）を止めてください。'
-    }
-    $log.Add($text)
-    foreach ($n in $notes) { $log.Add($n) }
-    return $true
-}
-
 # ---- P2P 対戦のつながりやすさ ----
 
 # STUN (RFC 5389) で、外から見た自分の IP アドレスとポートを尋ねる
@@ -1519,66 +1347,61 @@ function Invoke-Measure([string]$kind) {
         Write-Host ''
         Write-Host '  1. 短い測定（約 20 秒）'
         Write-Host '  2. 長い測定（約 3 分。たまに起きる跳ねを見つけます。対戦と同じ環境で測るのに向きます）'
-        Write-Host '  3. 負荷をかけた測定（約 40 秒。回線が混んだときの遅れを測ります。通信量を使います）'
         $c = "$(Read-Host '番号 (Enter で 1)')".Trim()
-        $kind = switch ($c) { '' { 'Short' } '1' { 'Short' } '2' { 'Long' } '3' { 'Load' } default { $null } }
-        if (-not $kind) { Write-Host '1〜3 を入れてください。'; return }
+        $kind = switch ($c) { '' { 'Short' } '1' { 'Short' } '2' { 'Long' } default { $null } }
+        if (-not $kind) { Write-Host '1 か 2 を入れてください。'; return }
     }
     $route = Get-InternetRoute
     $targets = @(Get-MeasureTargets $route)
     $via = if ($route) { $route.Alias } else { '?' }
-    $kindName = switch ($kind) { 'Long' { '長い測定' } 'Load' { '負荷をかけた測定' } default { '短い測定' } }
+    $kindName = if ($kind -eq 'Long') { '長い測定' } else { '短い測定' }
     $log = New-Object System.Collections.Generic.List[string]
 
-    if ($kind -eq 'Load') {
-        if (-not (Invoke-LoadMeasure $targets $log)) { return }
-    } else {
-        $seconds = if ($kind -eq 'Long') { 180 } else { 20 }
-        $names = (@($targets) | ForEach-Object { "$($_.Label) ($($_.Address))" }) -join ' と '
-        Write-Host "$names を同時に、約 $seconds 秒測っています..."
-        $before = Get-AdapterBytes $via
-        $run = Invoke-PingRun $targets $seconds '通信を測っています'
-        $after = Get-AdapterBytes $via
-        $stats = @(for ($k = 0; $k -lt $targets.Count; $k++) { Get-PingStats $targets[$k].Label $targets[$k].Address $run.Rtt[$k] })
+    $seconds = if ($kind -eq 'Long') { 180 } else { 20 }
+    $names = (@($targets) | ForEach-Object { "$($_.Label) ($($_.Address))" }) -join ' と '
+    Write-Host "$names を同時に、約 $seconds 秒測っています..."
+    $before = Get-AdapterBytes $via
+    $run = Invoke-PingRun $targets $seconds '通信を測っています'
+    $after = Get-AdapterBytes $via
+    $stats = @(for ($k = 0; $k -lt $targets.Count; $k++) { Get-PingStats $targets[$k].Label $targets[$k].Address $run.Rtt[$k] })
 
-        $text = Format-PingStats $stats
-        Write-Host ''
-        Write-Host $text
-        Write-Host "  跳ね = いつもの値（中央値）より 1 フレーム（約 ${SpikeMs}ms）以上遅れた回数。95%ms = 100 回のうち 95 回はこの値以下。"
-        $log.Add($text)
+    $text = Format-PingStats $stats
+    Write-Host ''
+    Write-Host $text
+    Write-Host "  跳ね = いつもの値（中央値）より 1 フレーム（約 ${SpikeMs}ms）以上遅れた回数。95%ms = 100 回のうち 95 回はこの値以下。"
+    $log.Add($text)
 
-        for ($k = 0; $k -lt $targets.Count; $k++) {
-            # 1 回も返事が無い相手は、時刻を並べても意味がない
-            $times = if ($stats[$k].Received -gt 0) { Format-BadTimes $run.Rtt[$k] $stats[$k].Limit $run.At } else { $null }
-            if ($times) {
-                $line = "$($targets[$k].Label)で跳ね・ロスが起きた時刻（開始からの秒）: $times"
-                Write-Host "  $line"
-                $log.Add($line)
-            }
+    for ($k = 0; $k -lt $targets.Count; $k++) {
+        # 1 回も返事が無い相手は、時刻を並べても意味がない
+        $times = if ($stats[$k].Received -gt 0) { Format-BadTimes $run.Rtt[$k] $stats[$k].Limit $run.At } else { $null }
+        if ($times) {
+            $line = "$($targets[$k].Label)で跳ね・ロスが起きた時刻（開始からの秒）: $times"
+            Write-Host "  $line"
+            $log.Add($line)
         }
-
-        Write-Host ''
-        Write-Host '■ 目安' -ForegroundColor Cyan
-        foreach ($n in @(Get-MeasureVerdict $stats $run)) {
-            $color = if ($n -like '注意*') { 'Yellow' } else { 'Gray' }
-            Write-Host "  $n" -ForegroundColor $color
-            $log.Add($n)
-        }
-        if ($kind -eq 'Long') {
-            Write-Host '  跳ねがほぼ同じ間隔で並んでいるなら、Wi-Fi の周辺スキャンなど、決まった間隔で動く処理が原因の可能性があります。'
-        }
-        if ($before -and $after) {
-            $rx = Get-Mbps ($after.Rx - $before.Rx) $run.Seconds
-            $tx = Get-Mbps ($after.Tx - $before.Tx) $run.Seconds
-            if ($rx -ge 1 -or $tx -ge 0.5) {
-                $line = "情報: 測っているあいだ、この PC でほかの通信が流れていました（下り 約 ${rx}Mbps、上り 約 ${tx}Mbps）。結果が悪く出ることがあります。"
-                Write-Host "  $line"
-                $log.Add($line)
-            }
-        }
-        Write-Host '  ここで測れるのは自分の側だけです。対戦のラグは、相手の回線や距離でも決まります。'
-        Write-Host '  ダウンロード中や家族の動画再生中だけ遅いなら、ルーター側の詰まり (Bufferbloat) の可能性があります。4 → 3 の「負荷をかけた測定」で確かめられます。'
     }
+
+    Write-Host ''
+    Write-Host '■ 目安' -ForegroundColor Cyan
+    foreach ($n in @(Get-MeasureVerdict $stats $run)) {
+        $color = if ($n -like '注意*') { 'Yellow' } else { 'Gray' }
+        Write-Host "  $n" -ForegroundColor $color
+        $log.Add($n)
+    }
+    if ($kind -eq 'Long') {
+        Write-Host '  跳ねがほぼ同じ間隔で並んでいるなら、Wi-Fi の周辺スキャンなど、決まった間隔で動く処理が原因の可能性があります。'
+    }
+    if ($before -and $after) {
+        $rx = Get-Mbps ($after.Rx - $before.Rx) $run.Seconds
+        $tx = Get-Mbps ($after.Tx - $before.Tx) $run.Seconds
+        if ($rx -ge 1 -or $tx -ge 0.5) {
+            $line = "情報: 測っているあいだ、この PC でほかの通信が流れていました（下り 約 ${rx}Mbps、上り 約 ${tx}Mbps）。結果が悪く出ることがあります。"
+            Write-Host "  $line"
+            $log.Add($line)
+        }
+    }
+    Write-Host '  ここで測れるのは自分の側だけです。対戦のラグは、相手の回線や距離でも決まります。'
+    Write-Host '  ダウンロード中や家族の動画再生中だけ遅いなら、ルーター側の詰まり (Bufferbloat) の可能性があります。対戦のあいだは、ほかの機器や PC のダウンロード・アップロードを止めてください。'
 
     Write-Host ''
     Write-Host '■ P2P 対戦のつながりやすさ（目安）' -ForegroundColor Cyan
@@ -1601,7 +1424,7 @@ function Show-Menu {
         Write-Host '  1. 診断する（設定・手作業の案内・セキュリティの確認。何も変えません）'
         Write-Host '  2. おすすめ設定を入れる（変更前の値を保存します）'
         Write-Host '  3. 元に戻す（保存した値に戻します）'
-        Write-Host '  4. 通信を測る（短い測定・長い測定・負荷をかけた測定）'
+        Write-Host '  4. 通信を測る（短い測定・長い測定）'
         Write-Host '  Q. 終わる'
         $c = Read-Host '番号を入れて Enter'
         try {
