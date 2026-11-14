@@ -1,0 +1,135 @@
+FGNetCheck  PC settings check for fighting games  Guide
+=======================================================
+
+## What this tool does
+  It finds Windows settings that make online fighting-game matches and inputs unstable,
+  and sets them to recommended values.
+  It always saves the values from before a change, so you can put them back at any time.
+
+  1. Diagnose   Checks and shows the current settings. Changes nothing.
+  2. Apply      Sets the recommended values. The old values are saved in the backup folder.
+  3. Restore    Puts the saved values back.
+  4. Measure    Measures latency, jitter, spikes and packet loss with ping and records the result.
+                Also checks how easily P2P matches connect (NAT type).
+
+
+## Files in the zip
+  FGNetCheck.bat    Double-click this to start. The tool itself is inside this file.
+  GUIDE.txt         This file.
+  LICENSE.txt       The license (MIT).
+
+  While you use the tool, these appear in the same folder as FGNetCheck.bat.
+  backup folder     The values from before each change. If you delete it, you cannot restore.
+  measure_log.txt   The record of the "Measure the connection" results.
+
+
+## Before you start
+  1. Right-click the zip, choose "Extract All", and extract it to a folder.
+     If you run it from inside the zip without extracting, the backup folder is not kept
+     and you cannot restore.
+  2. Put the extracted folder somewhere you will not delete (for example C:\tools\FGNetCheck).
+     The Downloads folder is not recommended, because it tends to get cleaned out.
+
+
+## How to use (the order for first-time users)
+  1. Double-click FGNetCheck.bat.
+     If "Windows protected your PC" appears, click "More info" and then "Run anyway".
+     (This appears for tools that are not signed.)
+  2. If "Do you want to allow this app to make changes to your device?" appears, choose "Yes".
+     Administrator rights are needed to change settings.
+  3. When the menu appears, first type 4 and press Enter to measure the current connection.
+     When it asks which test, just press Enter (short test).
+  4. Type 1 and press Enter, and read the diagnosis.
+     The settings comparison table (Status column)
+       OK          Matches the recommendation.
+       Change      Menu 2 can fix this item.
+     The list of checks below it
+       [OK]        No problem.
+       [WARN]      Worth reviewing. Read the advice after "->" and fix it by hand.
+       [INFO]      Good to know. If you have no trouble, you can leave it as it is.
+  5. Type 2 and press Enter. When the changes are listed, type y and press Enter.
+     The network drops for a few seconds on the way. Finish any game or call first.
+  6. Restart the PC (some settings, such as GPU settings, take effect after a restart).
+  7. Start the tool again, measure with 4 using the same test, and compare with step 3.
+     The results are kept in measure_log.txt.
+  8. Type Q and press Enter to quit.
+
+
+## The two tests in "Measure the connection"
+  1. Short test (about 20 seconds)
+       Use it to compare before and after changing settings.
+  2. Long test (about 3 minutes)
+       Finds spikes that only happen every few tens of seconds.
+       Good for people on Wi-Fi who get occasional stutter.
+
+  How to read the table
+       MedianMs    The usual speed.
+       95%ms       95 out of 100 pings were at or below this value.
+       Spikes      Number of pings at least 1 frame (about 17ms) slower than usual.
+       LossRun     The longest run of pings in a row that got no reply.
+     In fighting games, few spikes, low jitter and no loss matter more than the average speed.
+
+  Hosts contacted while measuring
+       1.1.1.1                                  The ping target.
+       stun.l.google.com / stun.cloudflare.com  Used to check the NAT type.
+     Diagnose, Apply and Restore do not connect to anything outside the PC.
+
+
+## When you want to restore
+  1. Start FGNetCheck.bat, type 3 and press Enter.
+  2. A list of saved dates and times appears. Press Enter to restore the newest one.
+     To go back to an earlier state, type its number.
+  3. When the values to restore are listed, type y and press Enter.
+
+  If you applied the recommended settings several times, restoring from the newest
+  to the oldest brings you back to the first state.
+
+
+## What "Apply the recommended settings" (menu 2) changes
+  - Network adapter power saving (Energy-Efficient Ethernet and so on): off
+  - Network settings changed by other tools: back to the Windows defaults (LSO, RSC,
+    congestion control and so on)
+    These are TCP settings. Most games use UDP during a match, so match latency does not change.
+    They put downloads and other traffic back to the original state.
+  - The plugged-in power plan (PCI Express and USB power saving off, CPU allowed up to 100%)
+    Turning off USB power saving makes inputs from arcade sticks and pads less likely to drop.
+  - Game Mode on, mouse "Enhance pointer precision" off
+  - Removes values that tweak tools left in the GPU settings
+    This includes values (such as TdrLevel) that stop Windows from recovering automatically
+    when the GPU hangs.
+
+
+## What this tool never changes automatically
+  Settings whose effect is unclear, or that can backfire on some PCs, are not changed.
+  The diagnosis only points them out as WARN or INFO. For example:
+  - Driver updates
+  - Security settings (Defender, firewall, memory integrity and so on)
+  - Firewall rules that block traffic for fighting games
+  - Optimizations for windowed games, drive optimization, SysMain
+  - Router settings (UPnP, port forwarding, bufferbloat control)
+
+
+## Troubleshooting
+  - A black window flashes and disappears
+      Make sure you are not running it from inside the zip without extracting.
+  - The "Yes" prompt does not appear, or you chose "No"
+      Double-click FGNetCheck.bat again and choose "Yes".
+  - It says "PowerShell is restricted ..." and does not run
+      An administrator has restricted PowerShell, as on company or school PCs.
+      Do not use this tool on that PC.
+  - Antivirus software stopped it
+      Antivirus software sometimes treats starting PowerShell as suspicious.
+      You can check what the tool does by opening FGNetCheck.bat in Notepad.
+  - Something got worse after applying the recommended settings
+      Put the values back with menu 3 (Restore).
+
+
+## Notes
+  - This tool does not make your connection faster (it does not add bandwidth).
+    It removes settings on the PC that make networking or the system unstable.
+  - Lag in a match also depends on the line of your opponent and the distance.
+    This tool can only fix your own PC.
+  - If it is slow only during downloads or while family members watch video, the router
+    may be clogging (bufferbloat). You can check on this page:
+    https://www.waveform.com/tools/bufferbloat
+  - This tool comes with no warranty. Change settings at your own risk (see LICENSE.txt).

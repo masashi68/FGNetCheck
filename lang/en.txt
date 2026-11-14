@@ -1,0 +1,1048 @@
+@@
+'この PC は管理者の設定で PowerShell が制限されているため、このツールは使えません。'
+=>
+'PowerShell is restricted on this PC by its administrator, so this tool cannot run here.'
+@@
+'Enter で閉じます'
+=>
+'Press Enter to close'
+@@
+'管理者として起動できませんでした。「はい」を選んでください。'
+=>
+'Could not start as administrator. Please choose "Yes".'
+@@
+'アダプターの省電力を切る'
+=>
+'Adapter power saving off'
+@@
+'通信を Windows 既定に戻す'
+=>
+'Network: Windows defaults'
+@@
+'電源プラン（電源接続時）'
+=>
+'Power plan (plugged in)'
+@@
+'Windows のゲーム設定'
+=>
+'Windows gaming settings'
+@@
+'最適化ツールの残り (GPU)'
+=>
+'Tweak-tool leftovers (GPU)'
+@@
+'有線'
+=>
+'Wired'
+@@
+'(なし)'
+=>
+'(none)'
+@@
+'disab|off|無効|オフ'
+=>
+'disab|off|\u7121\u52b9|\u30aa\u30d5'
+@@
+'電力の節約のために電源をオフ'
+=>
+'Allow the computer to turn off this device to save power'
+@@
+"大きな送信のオフロード ($v)"
+=>
+"Large Send Offload ($v)"
+@@
+'True (既定)'
+=>
+'True (default)'
+@@
+'受信セグメントの結合 (RSC)'
+=>
+'Receive Segment Coalescing (RSC)'
+@@
+'Windows 全体'
+=>
+'All of Windows'
+@@
+'Enabled (既定)'
+=>
+'Enabled (default)'
+@@
+'輻輳制御'
+=>
+'Congestion control'
+@@
+'CUBIC (既定)'
+=>
+'CUBIC (default)'
+@@
+'最初の再送までの待ち (ms)'
+=>
+'Initial retransmission timeout (ms)'
+@@
+'1000 以下 (既定 1000)'
+=>
+'1000 or less (default 1000)'
+@@
+"電源プラン: $($plan.Name)"
+=>
+"Power plan: $($plan.Name)"
+@@
+'今の電源プラン'
+=>
+'Current power plan'
+@@
+'PCI Express の省電力'
+=>
+'PCI Express link power saving'
+@@
+'0 (オフ)'
+=>
+'0 (Off)'
+@@
+'USB のセレクティブ サスペンド'
+=>
+'USB selective suspend'
+@@
+'0 (無効)'
+=>
+'0 (Disabled)'
+@@
+'CPU の最大の状態 (%)'
+=>
+'Maximum processor state (%)'
+@@
+'CPU のブースト'
+=>
+'Processor performance boost'
+@@
+'0 (無効) 以外。直すなら 2'
+=>
+'Not 0 (Disabled). Fix: 2'
+@@
+'ワイヤレス アダプターの省電力'
+=>
+'Wireless adapter power saving'
+@@
+'0 (最大パフォーマンス)'
+=>
+'0 (Maximum Performance)'
+@@
+'ゲームモード'
+=>
+'Game Mode'
+@@
+'このユーザー'
+=>
+'This user'
+@@
+'1 (オン。未設定もオン)'
+=>
+'1 (On; unset is also On)'
+@@
+'ポインターの精度を高める'
+=>
+'Enhance pointer precision'
+@@
+'オフ (0,0,0)'
+=>
+'Off (0,0,0)'
+@@
+"GPU 設定 ($sub)"
+=>
+"GPU settings ($sub)"
+@@
+'GPU 設定'
+=>
+'GPU settings'
+@@
+'(なし) 既定'
+=>
+'(none) default'
+@@
+'アダプターが見つかりません'
+=>
+'Adapter not found'
+@@
+"マウスの値が不正です: $value"
+=>
+"Invalid mouse value: $value"
+@@
+'マウス設定を変更できませんでした'
+=>
+'Could not change the mouse setting'
+@@
+'powercfg が失敗しました'
+=>
+'powercfg failed'
+@@
+'■ ネットワークアダプター'
+=>
+'## Network adapters'
+@@
+"  {0} [{1}] 状態:{2} 速度:{3}  {4}"
+=>
+"  {0} [{1}] Status:{2} Speed:{3}  {4}"
+@@
+"  インターネットに使っているもの: $($route.Alias)"
+=>
+"  Used for the internet: $($route.Alias)"
+@@
+'  注意: Wi-Fi でつないでいます。格闘ゲームのオンライン対戦では、揺れやロスが巻き戻りやカクつきになって出ます。有線 LAN にするのがいちばん効きます。'
+=>
+'  WARN: You are connected over Wi-Fi. In online fighting games, jitter and packet loss show up as rollbacks and stutter. Switching to wired LAN helps the most.'
+@@
+'  注意: 有線 LAN でも Wi-Fi でもないアダプター（VPN、仮想スイッチ、テザリングなど）を通っています。VPN を使っているなら、対戦のあいだは切ると遅延が減ります。'
+=>
+'  WARN: Traffic goes through an adapter that is neither wired LAN nor Wi-Fi (VPN, virtual switch, tethering, etc.). If you use a VPN, turning it off while you play reduces latency.'
+@@
+区分
+=>
+Group
+@@
+項目
+=>
+Item
+@@
+対象
+=>
+Target
+@@
+今
+=>
+Now
+@@
+おすすめ
+=>
+Recommended
+@@
+判定
+=>
+Status
+@@
+'変更する'
+=>
+'Change'
+@@
+"※「$($GroupName['B'])」は TCP の設定です。対戦中の通信は多くのゲームで UDP なので、対戦の遅延は変わりません。"
+=>
+"* `"$($GroupName['B'])`" covers TCP settings. Most games use UDP during a match, so match latency does not change."
+@@
+'  ダウンロードやブラウザーなどの通信を、他のツールが変える前の状態に戻すための項目です。'
+=>
+'  These items put downloads, browsing and other traffic back to the state before another tool changed it.'
+@@
+'注意'
+=>
+'WARN'
+@@
+"         → $fix"
+=>
+"         -> $fix"
+@@
+'■ 手作業で確かめてほしいこと（ツールは変えません）'
+=>
+'## Things to check by hand (the tool does not change these)'
+@@
+'情報'
+=>
+'INFO'
+@@
+'ノート PC（電源に接続中）です。'
+=>
+'This is a laptop (plugged in).'
+@@
+'熱で CPU が自動で遅くなることがあります。メーカーの電源・冷却アプリで性能寄りか冷却寄りのモードを選んでください。'
+=>
+'Heat can make the CPU slow itself down. In the power or cooling app from the PC maker, pick a performance or cooling mode.'
+@@
+'ノート PC がバッテリーで動いています。'
+=>
+'This laptop is running on battery.'
+@@
+'ゲームは電源につないで遊んでください。このツールの電源設定は電源接続時だけを変えます。'
+=>
+'Plug it in when you play. The power settings in this tool only change the plugged-in values.'
+@@
+"電源プランが「$($plan.Name)」です。CPU が抑えられます。"
+=>
+"The power plan is `"$($plan.Name)`". The CPU is held back."
+@@
+'コントロール パネル → 電源オプション で「バランス」か「高パフォーマンス」を選んでください。'
+=>
+'In Control Panel > Power Options, choose "Balanced" or "High performance".'
+@@
+'電源モード（電源接続時）が「最適な電力効率」です。'
+=>
+'Power mode (plugged in) is "Best power efficiency".'
+@@
+'設定 → システム → 電源 → 電源モード を「最適なパフォーマンス」にしてください。'
+=>
+'Set Settings > System > Power & battery > Power mode to "Best performance".'
+@@
+'ウィンドウ表示のゲームの最適化: オン'
+=>
+'Optimizations for windowed games: On'
+@@
+'Lossless Scaling などの使用中に固まるときは、設定 → ディスプレイ → グラフィック → 既定のグラフィック設定 でオフにしてください。'
+=>
+'If the PC freezes while using Lossless Scaling or similar, turn it off in Settings > System > Display > Graphics > Default graphics settings.'
+@@
+'ウィンドウ表示のゲームの最適化: オフ'
+=>
+'Optimizations for windowed games: Off'
+@@
+'DirectX 10/11 のゲームをウィンドウ・ボーダーレスで遊ぶなら試す価値があります。Lossless Scaling と併用するとフリーズする報告があります。'
+=>
+'Worth trying if you play DirectX 10/11 games in windowed or borderless mode. There are reports of freezes when used together with Lossless Scaling.'
+@@
+'SSD への TRIM が止められています。書き込みが遅くなっていくことがあります。'
+=>
+'TRIM for SSDs is turned off. Writes can get slower over time.'
+@@
+'管理者で: fsutil behavior set DisableDeleteNotify 0'
+=>
+'As admin: fsutil behavior set DisableDeleteNotify 0'
+@@
+'HDD があるのに、ドライブの定期最適化が止まっています。'
+=>
+'There is an HDD, but scheduled drive optimization is turned off.'
+@@
+'スタートで「ドライブのデフラグと最適化」→ 設定の変更 → スケジュールに従って実行する をオンにしてください。'
+=>
+'Search Start for "Defragment and Optimize Drives" > Change settings > turn on "Run on a schedule".'
+@@
+'ドライブの定期最適化が止まっています。SSD だけで TRIM が有効なら、影響は小さいです。'
+=>
+'Scheduled drive optimization is turned off. If you only have SSDs and TRIM is on, the effect is small.'
+@@
+'SysMain (アプリの先読み) が止まっています。HDD では既定の自動起動に戻すと読み込みが速くなることがあります。'
+=>
+'SysMain (app preloading) is stopped. On an HDD, setting it back to the default (Automatic) can make loading faster.'
+@@
+'SysMain (アプリの先読み) が止まっています。SSD だけなら影響は小さいです。'
+=>
+'SysMain (app preloading) is stopped. With SSDs only, the effect is small.'
+@@
+"メーカーの通信制御ソフトが入っています: $names"
+=>
+"Network control software from the PC maker is installed: $names"
+@@
+'そのソフトで通信の優先制御・帯域管理がオフになっているか確かめてください。オフならこのままで問題ありません。'
+=>
+'Check that traffic prioritization and bandwidth control are off in that software. If they are off, you can leave it as it is.'
+@@
+'メーカーの通信制御ソフトは見つかりません。'
+=>
+'No network control software from the PC maker was found.'
+@@
+'NVIDIA / AMD の公式サイト（または NVIDIA App / AMD Software）から最新版を入れてください。PC メーカーのページの版は古いことが多いです。'
+=>
+'Install the latest version from the official NVIDIA / AMD site (or NVIDIA App / AMD Software). The version on the PC maker page is often old.'
+@@
+'Intel の古い世代の内蔵 GPU は更新が止まっていることがあります。Intel の公式サイトで、その CPU 向けの最新版がこれより新しいか確かめてください。'
+=>
+'Updates may have ended for older Intel integrated GPUs. Check the official Intel site to see whether the latest driver for that CPU is newer than this one.'
+@@
+"$($g.Name) のドライバーが古めです（$when、約 $days 日前、版 $($g.DriverVersion)）。"
+=>
+"The $($g.Name) driver is fairly old ($when, about $days days ago, version $($g.DriverVersion))."
+@@
+"$($g.Name) のドライバー: $when"
+=>
+"$($g.Name) driver: $when"
+@@
+"$($g.Name) の画面が $($g.CurrentRefreshRate)Hz で動いています（最大 $($g.MaxRefreshRate)Hz）。"
+=>
+"The $($g.Name) display is running at $($g.CurrentRefreshRate)Hz (maximum $($g.MaxRefreshRate)Hz)."
+@@
+'設定 → ディスプレイ → ディスプレイの詳細設定 → リフレッシュ レート で最大を選んでください。'
+=>
+'Choose the highest value in Settings > System > Display > Advanced display > Choose a refresh rate.'
+@@
+"$($g.Name) の画面: $($g.CurrentRefreshRate)Hz"
+=>
+"$($g.Name) display: $($g.CurrentRefreshRate)Hz"
+@@
+'Windows に任せる'
+=>
+'Let Windows decide'
+@@
+'省電力'
+=>
+'Power saving'
+@@
+'高パフォーマンス'
+=>
+'High performance'
+@@
+"GPU が {0} つあります。"
+=>
+"There are {0} GPUs."
+@@
+'設定 → ディスプレイ → グラフィック で、ゲームを「高パフォーマンス」にしてください。'
+=>
+'In Settings > System > Display > Graphics, set your games to "High performance".'
+@@
+"$exe の GPU 設定の値が壊れている可能性があります。"
+=>
+"The GPU preference value for $exe may be corrupted."
+@@
+'設定 → ディスプレイ → グラフィック でこのアプリを選び、設定し直してください。'
+=>
+'In Settings > System > Display > Graphics, select this app and set it again.'
+@@
+"不明 ($p)"
+=>
+"Unknown ($p)"
+@@
+"$exe の GPU: $name"
+=>
+"$exe GPU preference: $name"
+@@
+"Wi-Fi の電波が弱めです（$sig%）。"
+=>
+"The Wi-Fi signal is fairly weak ($sig%)."
+@@
+'ルーターに近づく、5GHz / 6GHz を使う、有線 LAN にする、のどれかが効きます。'
+=>
+'Moving closer to the router, using 5GHz / 6GHz, or switching to wired LAN will help.'
+@@
+"Wi-Fi の電波: $sig%"
+=>
+"Wi-Fi signal: $sig%"
+@@
+'Wi-Fi の電波の強さを読めませんでした。'
+=>
+'Could not read the Wi-Fi signal strength.'
+@@
+'Windows 11 24H2 以降は、設定 → プライバシーとセキュリティ → 位置情報 がオフだと読めません。タスクバーの Wi-Fi アイコンの本数で確かめてください。'
+=>
+'On Windows 11 24H2 and later it cannot be read when Settings > Privacy & security > Location is off. Check the bars on the Wi-Fi icon in the taskbar instead.'
+@@
+'数十秒おきに ping が跳ねるときは、Wi-Fi の周辺スキャンが原因のことがあります。'
+=>
+'If ping spikes every few tens of seconds, Wi-Fi background scanning may be the cause.'
+@@
+'Wi-Fi ドライバーの更新と、ルーターのローミング・背景スキャンの設定を確認してください。'
+=>
+'Update the Wi-Fi driver and check the roaming and background scan settings.'
+@@
+"$($a.Name) が ${mbps}Mbps でつながっています。"
+=>
+"$($a.Name) is linked at ${mbps}Mbps."
+@@
+'LAN ケーブル（Cat5e 以上か、傷んでいないか）と差し込み口を確かめてください。ルーターやハブが 100Mbps までの機種なら、このままで正常です。'
+=>
+'Check the LAN cable (Cat5e or better, not damaged) and the port. If your router or switch only supports 100Mbps, this is normal.'
+@@
+"$($a.Name) のリンク速度: $($a.LinkSpeed)"
+=>
+"$($a.Name) link speed: $($a.LinkSpeed)"
+@@
+"$($a.Name) で通信エラーが多めです（$err 件。アダプターが動き始めてからの合計）。"
+=>
+"$($a.Name) has many packet errors ($err in total since the adapter started)."
+@@
+'LAN ケーブルを替える、ルーターやハブの別の差し込み口を使う、のどちらかを試してください。'
+=>
+'Try replacing the LAN cable, or use a different port on the router or switch.'
+@@
+"$($a.Name) で通信エラーが少しあります（$err 件。アダプターが動き始めてからの合計）。増え続けるなら LAN ケーブルを疑ってください。"
+=>
+"$($a.Name) has a few packet errors ($err in total since the adapter started). If the number keeps growing, suspect the LAN cable."
+@@
+"{0}: {1}（既定 {2}）"
+=>
+"{0}: {1} (default {2})"
+@@
+"$($a.Name) で、ドライバーの既定と違う設定: $txt"
+=>
+"$($a.Name) has settings that differ from the driver defaults: $txt"
+@@
+'変えた覚えがなければ、デバイス マネージャー → ネットワーク アダプター → プロパティ → 詳細設定 で既定に戻せます。PC メーカーが出荷時に変えていることもあります。'
+=>
+'If you do not remember changing them, you can set them back in Device Manager > Network adapters > Properties > Advanced. The PC maker may also have changed them at the factory.'
+@@
+'Windows Update の「配信の最適化」が、インターネット上の PC にも更新を配る設定です。配っているあいだは上りの帯域を使います。'
+=>
+'Windows Update "Delivery Optimization" is set to also send updates to PCs on the internet. It uses upload bandwidth while sending.'
+@@
+'設定 → Windows Update → 詳細オプション → 配信の最適化 で「ローカル ネットワーク上のデバイス」を選ぶか、オフにしてください。'
+=>
+'In Settings > Windows Update > Advanced options > Delivery Optimization, choose "Devices on my local network" or turn it off.'
+@@
+'P2P で対戦するゲームでつながりにくい・相手が限られるときは、ルーター側の設定が原因のことがあります。'
+=>
+'If a P2P game is hard to connect in, or you can only connect to some opponents, router settings may be the cause.'
+@@
+'メニューの 4（通信を測る）で、NAT の型と二重ルーターを確かめられます。ルーターの UPnP を有効にするか、ゲームの案内に従ってポートを開けてください。'
+=>
+'Menu 4 (Measure the connection) checks the NAT type and double routers. Enable UPnP on the router, or open ports as the game instructs.'
+@@
+"起動時に動くアプリ ({0}): {1}"
+=>
+"Apps that run at startup ({0}): {1}"
+@@
+'ゲーム中に要らないものは タスク マネージャー → スタートアップ アプリ で無効にできます。'
+=>
+'You can disable the ones you do not need while gaming in Task Manager > Startup apps.'
+@@
+'受信'
+=>
+'In'
+@@
+'送信'
+=>
+'Out'
+@@
+"対戦ゲームの通信がブロックされています: $($b.Program)（$w）"
+=>
+"Traffic for a fighting game is blocked: $($b.Program) ($w)"
+@@
+'使っているゲームなら、Windows セキュリティ → ファイアウォールとネットワーク保護 → 詳細設定 → 受信の規則（と送信の規則）でこのブロック規則を消し、ゲームを起動し直して「許可」してください。'
+=>
+'If you use this game, delete the block rule in Windows Security > Firewall & network protection > Advanced settings > Inbound Rules (and Outbound Rules), then start the game again and choose "Allow".'
+@@
+'対戦ゲーム（Steam・Fightcade）の通信をブロックする規則はありません。'
+=>
+'No rule blocks traffic for fighting games (Steam, Fightcade).'
+@@
+"受信をブロックされているアプリ: $($b.Program)（$prof）"
+=>
+"App with inbound traffic blocked: $($b.Program) ($prof)"
+@@
+'         → ゲームや通話のアプリなら、Windows セキュリティ → ファイアウォールとネットワーク保護 → 詳細設定 → 受信の規則 でそのブロック規則を消し、アプリを起動し直して「許可」してください。使わないアプリならそのままで構いません。'
+=>
+'         -> If it is a game or a voice chat app, delete the block rule in Windows Security > Firewall & network protection > Advanced settings > Inbound Rules, then start the app again and choose "Allow". If you do not use the app, leave it as it is.'
+@@
+'ファイアウォールで受信をブロックされているアプリはありません。'
+=>
+'No app has inbound traffic blocked by the firewall.'
+@@
+"メモリが 1 枚 (${totalGb}GB) です。シングルチャネルになり、ゲームの性能が落ちることがあります。"
+=>
+"There is only 1 memory module (${totalGb}GB). It runs in single channel, which can lower game performance."
+@@
+'同じ容量・同じ速さのメモリをもう 1 枚足すとデュアルチャネルになります（ノート PC は増設できるか仕様を確認してください）。'
+=>
+'Adding one more module of the same size and speed gives you dual channel (on a laptop, check the specs to see whether memory can be added).'
+@@
+"メモリ: $($mem.Count) 枚 (${totalGb}GB)"
+=>
+"Memory: $($mem.Count) modules (${totalGb}GB)"
+@@
+"メモリは ${running}MHz で動いています（メモリ自体は ${rated}MHz 対応）。ノート PC では CPU の上限で決まることが多く、正常な場合がほとんどです。"
+=>
+"Memory is running at ${running}MHz (the modules support ${rated}MHz). On laptops this is usually set by the CPU limit and is normal in most cases."
+@@
+"メモリが ${running}MHz で動いています（メモリ自体は ${rated}MHz 対応）。"
+=>
+"Memory is running at ${running}MHz (the modules support ${rated}MHz)."
+@@
+'BIOS で XMP（Intel）/ EXPO（AMD）を有効にすると定格で動きます。CPU の上限が低いときはそのままで正常です。'
+=>
+'Enabling XMP (Intel) / EXPO (AMD) in the BIOS runs it at the rated speed. If the CPU limit is lower, this is normal.'
+@@
+"$($v.DriveLetter): ドライブの空きが少なめです（${freeGb}GB、${pct}%）。"
+=>
+"$($v.DriveLetter): Free space is low (${freeGb}GB, ${pct}%)."
+@@
+'要らないファイルやゲームを消すか、設定 → システム → ストレージ → 一時ファイル で空けてください。'
+=>
+'Delete files or games you do not need, or free up space in Settings > System > Storage > Temporary files.'
+@@
+"$($v.DriveLetter): ドライブの空き: ${freeGb}GB (${pct}%)"
+=>
+"$($v.DriveLetter): Free space: ${freeGb}GB (${pct}%)"
+@@
+'■ 起動とセキュリティの確認（ツールは変えません）'
+=>
+'## Boot and security checks (the tool does not change these)'
+@@
+"起動設定（タイマー）が既定から変わっています: {0}"
+=>
+"Boot settings (timers) differ from the defaults: {0}"
+@@
+'既定に戻すには管理者で: '
+=>
+'To restore the default, as admin: '
+@@
+'  のあと再起動'
+=>
+'  then restart'
+@@
+'起動設定（タイマー）は既定のままです。'
+=>
+'Boot settings (timers) are at their defaults.'
+@@
+'起動設定は管理者で実行すると確認できます。'
+=>
+'Boot settings can be checked when you run as administrator.'
+@@
+"攻撃の緩和策がオフになっています: {0}"
+=>
+"Exploit mitigations are turned off: {0}"
+@@
+'Windows セキュリティ → アプリとブラウザー コントロール → Exploit Protection の設定 → システム設定 で各項目を「既定で有効」に戻し、再起動'
+=>
+'In Windows Security > App & browser control > Exploit protection settings > System settings, set each item back to "Use default (On)", then restart'
+@@
+'攻撃の緩和策は既定のままです。'
+=>
+'Exploit mitigations are at their defaults.'
+@@
+'攻撃の緩和策は確認できませんでした。'
+=>
+'Could not check the exploit mitigations.'
+@@
+'仮想化ベースのセキュリティ (VBS) は動いています。'
+=>
+'Virtualization-based security (VBS) is running.'
+@@
+'VBS は動いていません。ゲームには有利ですが、守りは弱くなります。'
+=>
+'VBS is not running. That helps games, but protection is weaker.'
+@@
+'メモリ整合性はオンです。Microsoft は、一部の構成ではゲーム性能が下がることがあるとしています。'
+=>
+'Memory integrity is on. Microsoft says it can lower game performance on some configurations.'
+@@
+'気になるときだけ、ゲーム中に Windows セキュリティ → デバイス セキュリティ → コア分離 でオフにし、終わったら戻してください。'
+=>
+'Only if it bothers you: turn it off while gaming in Windows Security > Device security > Core isolation, and turn it back on afterwards.'
+@@
+'メモリ整合性はオフです。ゲームには有利ですが、守りは弱くなります。'
+=>
+'Memory integrity is off. That helps games, but protection is weaker.'
+@@
+'戻すなら Windows セキュリティ → デバイス セキュリティ → コア分離 → メモリ整合性'
+=>
+'To turn it back on: Windows Security > Device security > Core isolation > Memory integrity'
+@@
+'仮想マシン プラットフォーム (VMP) が有効です。WSL や Android アプリを使わないなら、一部の構成でゲームが軽くなることがあります。'
+=>
+'Virtual Machine Platform (VMP) is enabled. If you do not use WSL or Android apps, turning it off can make games lighter on some configurations.'
+@@
+'Windows の機能の有効化または無効化 から外せます（使っている機能が動かなくなるので注意）。'
+=>
+'You can remove it in "Turn Windows features on or off" (careful: features that depend on it will stop working).'
+@@
+'全画面最適化を全体で無効にする設定が入っています（チューニングツールが入れたものと見られます）。'
+=>
+'Fullscreen optimizations are disabled system-wide (this looks like something a tuning tool added).'
+@@
+'効果は賛否が分かれるので、ツールは変えません。特定のゲームだけ戻したいときは、その exe のプロパティ → 互換性 で設定できます。'
+=>
+'Opinions on its effect are divided, so the tool does not change it. To change it for one game only, open Properties > Compatibility on that exe.'
+@@
+'ポリシーで Microsoft Defender が止められています。'
+=>
+'Microsoft Defender is turned off by policy.'
+@@
+'管理者で: Remove-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Name DisableAntiSpyware'
+=>
+'As admin: Remove-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Name DisableAntiSpyware'
+@@
+'Microsoft Defender のリアルタイム保護はオンです。'
+=>
+'Microsoft Defender real-time protection is on.'
+@@
+"ほかのウイルス対策が入っています: {0}"
+=>
+"Another antivirus is installed: {0}"
+@@
+'リアルタイムのウイルス対策が確認できません。'
+=>
+'Could not confirm real-time antivirus protection.'
+@@
+'Windows セキュリティ → ウイルスと脅威の防止 で確認してください。'
+=>
+'Check in Windows Security > Virus & threat protection.'
+@@
+'ユーザー アカウント制御 (UAC) が確認なしになっています。'
+=>
+'User Account Control (UAC) is set to never notify.'
+@@
+'スタートで「UAC」と検索 → ユーザー アカウント制御設定の変更 → 上から 2 番目（既定）'
+=>
+'Search Start for "UAC" > Change User Account Control settings > second from the top (default)'
+@@
+'ユーザー アカウント制御 (UAC) は有効です。'
+=>
+'User Account Control (UAC) is enabled.'
+@@
+'Standard(ポリシー)'
+=>
+'Standard(policy)'
+@@
+"ファイアウォールがオフ: {0}"
+=>
+"Firewall is off: {0}"
+@@
+'Windows セキュリティ → ファイアウォールとネットワーク保護 でオンにしてください。'
+=>
+'Turn it on in Windows Security > Firewall & network protection.'
+@@
+'ファイアウォールはオンです。'
+=>
+'The firewall is on.'
+@@
+'ポリシーで SmartScreen が止められています。'
+=>
+'SmartScreen is turned off by policy.'
+@@
+'管理者で: Remove-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name EnableSmartScreen'
+=>
+'As admin: Remove-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name EnableSmartScreen'
+@@
+'知らないネットワーク（外の Wi-Fi など）がプライベート扱いになっています。'
+=>
+'Unknown networks (such as public Wi-Fi) are treated as private.'
+@@
+"管理者で: Remove-ItemProperty `"$unknownNet`" -Name Category"
+=>
+"As admin: Remove-ItemProperty `"$unknownNet`" -Name Category"
+@@
+'リモート デスクトップがネットワーク レベル認証なしの設定です（Home では受け付けないので今は実害なし）。'
+=>
+'Remote Desktop is set to allow connections without Network Level Authentication (Home edition does not accept connections, so there is no actual risk now).'
+@@
+'Pro にしたら、設定 → システム → リモート デスクトップ を確認してください。'
+=>
+'If you upgrade to Pro, check Settings > System > Remote Desktop.'
+@@
+'リモート デスクトップがネットワーク レベル認証なしで開いています。'
+=>
+'Remote Desktop is open without Network Level Authentication.'
+@@
+'設定 → システム → リモート デスクトップ で、使わないならオフ、使うならネットワーク レベル認証をオンに'
+=>
+'In Settings > System > Remote Desktop, turn it off if you do not use it, or turn on Network Level Authentication if you do'
+@@
+'■ 設定の比較'
+=>
+'## Settings comparison'
+@@
+'すべておすすめどおりです。'
+=>
+'Everything matches the recommendations.'
+@@
+"変更が必要なものが $n 件あります。メニューの 2 で入れられます。"
+=>
+"$n item(s) need changing. Menu 2 applies them."
+@@
+"アダプターを再起動しています: $n（数秒ネットが切れます）"
+=>
+"Restarting adapter: $n (the network drops for a few seconds)"
+@@
+"  再起動に失敗: $($_.Exception.Message)"
+=>
+"  Restart failed: $($_.Exception.Message)"
+@@
+'■ 結果'
+=>
+'## Result'
+@@
+"{0} / {1}: {2} → {3}"
+=>
+"{0} / {1}: {2} -> {3}"
+@@
+"{0} / {1}: {2} に戻す"
+=>
+"{0} / {1}: back to {2}"
+@@
+"  [失敗] $line  理由: $($failed[$r.Id])"
+=>
+"  [FAILED] $line  Reason: $($failed[$r.Id])"
+@@
+"  [未反映] $line  今の値: $(Format-Val $after)"
+=>
+"  [NOT APPLIED] $line  Current value: $(Format-Val $after)"
+@@
+'GPU の設定は PC を再起動すると反映されます。'
+=>
+'GPU settings take effect after you restart the PC.'
+@@
+'すべておすすめどおりです。変更はありません。'
+=>
+'Everything matches the recommendations. Nothing to change.'
+@@
+"$($todo.Count) 件を変更します。途中でネットが数秒切れるので、ゲームや通話は終えてから進めてください。"
+=>
+"$($todo.Count) item(s) will be changed. The network drops for a few seconds on the way, so finish any game or call first."
+@@
+'進めますか？ (y/n)'
+=>
+'Continue? (y/n)'
+@@
+'中止しました。'
+=>
+'Cancelled.'
+@@
+"変更前の値を保存しました: $file"
+=>
+"Saved the values from before the change: $file"
+@@
+'保存された値がありません。'
+=>
+'There are no saved values.'
+@@
+'戻したい番号 (Enter で 1 = いちばん新しいもの)'
+=>
+'Number to restore (Enter = 1, the newest)'
+@@
+'番号が違います。'
+=>
+'That number is not valid.'
+@@
+"$file の値に戻します:"
+=>
+"Restoring the values from ${file}:"
+@@
+'ルーター'
+=>
+'Router'
+@@
+'インターネット'
+=>
+'Internet'
+@@
+"{0} / {1} 秒"
+=>
+"{0} / {1} s"
+@@
+相手
+=>
+Target
+@@
+アドレス
+=>
+Address
+@@
+回数
+=>
+Count
+@@
+平均ms
+=>
+AvgMs
+@@
+中央ms
+=>
+MedianMs
+@@
+最大ms
+=>
+MaxMs
+@@
+ゆらぎms
+=>
+JitterMs
+@@
+跳ね
+=>
+Spikes
+@@
+ロス率
+=>
+Loss
+@@
+連続ロス
+=>
+LossRun
+@@
+" ほか $($groups.Count - 15) 回"
+=>
+" and $($groups.Count - 15) more"
+@@
+'注意: インターネット (1.1.1.1) から返事がありません。つながっていないか、ping が止められています。'
+=>
+'WARN: No reply from the internet (1.1.1.1). You are not connected, or ping is blocked.'
+@@
+'情報: ルーターが ping に答えないので、家の中とインターネット側を分けて判定できません。'
+=>
+'INFO: The router does not answer ping, so the home side and the internet side cannot be judged separately.'
+@@
+'注意: ルーターまでの区間で既に揺れていて、インターネット側の揺れと同じタイミングで起きています。Wi-Fi、LAN ケーブル、ルーターなど家の中が原因の可能性が高いです。'
+=>
+'WARN: There is already jitter on the way to the router, and it happens at the same moments as the jitter on the internet side. The cause is most likely inside your home: Wi-Fi, the LAN cable, or the router.'
+@@
+'注意: ルーターとインターネットの両方で揺れていますが、起きたタイミングは重なっていません。インターネット側（回線の混雑や、ルーターの先）が原因の可能性があります。'
+=>
+'WARN: Both the router and the internet show jitter, but not at the same moments. The cause may be on the internet side (line congestion, or something beyond the router).'
+@@
+'  ルーターは自分あての ping への返事を後回しにすることがあり、ルーターの揺れはそのせいかもしれません。'
+=>
+'  Routers sometimes answer pings sent to themselves late, so the router jitter may be just that.'
+@@
+'情報: ルーターあての ping だけが揺れていて、インターネット側は安定しています。ルーターは自分あての ping への返事を後回しにすることがあるので、通信そのものには問題がない可能性が高いです。'
+=>
+'INFO: Only the pings to the router show jitter; the internet side is stable. Routers sometimes answer pings sent to themselves late, so the connection itself is most likely fine.'
+@@
+'注意: 家の中は安定していて、インターネット側で揺れています。回線の混雑や、ルーターの先が原因の可能性があります。'
+=>
+'WARN: The home side is stable and the jitter is on the internet side. The cause may be line congestion, or something beyond the router.'
+@@
+'  格闘ゲームでは、少しのロスや跳ねでも巻き戻りやカクつきが増えます。時間を変えて測り直すと、混む時間帯かどうか分かります。'
+=>
+'  In fighting games, even a little loss or a few spikes add rollbacks and stutter. Measuring again at another time of day shows whether it is a busy-hour problem.'
+@@
+'大きな問題は見えません。'
+=>
+'No major problems found.'
+@@
+"  インターネット側で、跳ねが $($net.Spikes) 回、ロスが $($net.Lost) 回ありました。回数が少ないので、たまたまの可能性もあります。"
+=>
+"  On the internet side there were $($net.Spikes) spike(s) and $($net.Lost) lost packet(s). The numbers are small, so it may be chance."
+@@
+'相手が変わっても、外から見たポートが変わらない型の NAT です。P2P の対戦でつながりやすい型です。'
+=>
+'Your NAT keeps the same external port no matter who you connect to. This type connects easily in P2P matches.'
+@@
+"相手ごとに、外から見たアドレスやポートが変わる型の NAT（対称 NAT）です（$($a.Address):$($a.Port) と $($b.Address):$($b.Port)）。P2P の対戦で、つながらない相手が出たり、中継サーバー経由になって遅延が増えたりします。"
+=>
+"Your NAT changes the external address or port for each destination (symmetric NAT) ($($a.Address):$($a.Port) and $($b.Address):$($b.Port)). In P2P matches, some opponents may not connect, or the match may go through a relay server with more latency."
+@@
+'ルーターが 2 台重なっているなら、1 台をブリッジ（アクセスポイント）モードにしてください。集合住宅の共有回線、モバイル回線、VPN ではこの型になりやすく、その場合は PC 側では直せません。'
+=>
+'If two routers are chained, put one of them in bridge (access point) mode. Shared apartment lines, mobile lines and VPNs often give this type, and in that case it cannot be fixed on the PC.'
+@@
+'確認用のサーバーの片方からしか返事がなく、NAT の型は判定できませんでした。'
+=>
+'Only one of the two test servers replied, so the NAT type could not be determined.'
+@@
+'NAT の型は確認できませんでした（UDP が外へ出られないか、確認用のサーバーに届きません）。'
+=>
+'Could not check the NAT type (UDP cannot get out, or the test servers cannot be reached).'
+@@
+"ルーター ($hop1) の先にも、プライベート アドレスの機器 ($hop2) があります。ルーターが 2 台重なっている（二重ルーター）か、プロバイダーの網の中の機器です。"
+=>
+"Beyond the router ($hop1) there is another device with a private address ($hop2). Either two routers are chained (double router), or it is a device inside the ISP network."
+@@
+'ONU やホームゲートウェイにもルーター機能があるなら、どちらか 1 台だけをルーターにすると、P2P の対戦がつながりやすくなります。つながりにくさを感じていなければ、そのままで構いません。'
+=>
+'If your modem, ONT or ISP gateway also works as a router, making only one device the router helps P2P matches connect. If you have no trouble connecting, you can leave it as it is.'
+@@
+"ルーターの先が、プロバイダー側でアドレスを共有する区間 ($hop2) です（CGNAT）。ポートを開ける設定はできません。"
+=>
+"Beyond the router is a section where the ISP shares addresses ($hop2) (CGNAT). Ports cannot be opened."
+@@
+'  1. 短い測定（約 20 秒）'
+=>
+'  1. Short test (about 20 seconds)'
+@@
+'  2. 長い測定（約 3 分。たまに起きる跳ねを見つけます。対戦と同じ環境で測るのに向きます）'
+=>
+'  2. Long test (about 3 minutes. Finds spikes that only happen now and then. Good for measuring under the same conditions as a match)'
+@@
+"$(Read-Host '番号 (Enter で 1)')"
+=>
+"$(Read-Host 'Number (Enter = 1)')"
+@@
+'1 か 2 を入れてください。'
+=>
+'Enter 1 or 2.'
+@@
+'長い測定'
+=>
+'Long test'
+@@
+'短い測定'
+=>
+'Short test'
+@@
+' と '
+=>
+' and '
+@@
+"$names を同時に、約 $seconds 秒測っています..."
+=>
+"Measuring $names at the same time for about $seconds seconds..."
+@@
+'通信を測っています'
+=>
+'Measuring the connection'
+@@
+"  跳ね = いつもの値（中央値）より 1 フレーム（約 ${SpikeMs}ms）以上遅れた回数。95%ms = 100 回のうち 95 回はこの値以下。"
+=>
+"  Spikes = number of pings at least 1 frame (about ${SpikeMs}ms) slower than the usual value (median). 95%ms = 95 out of 100 pings were at or below this value."
+@@
+"$($targets[$k].Label)で跳ね・ロスが起きた時刻（開始からの秒）: $times"
+=>
+"$($targets[$k].Label): spikes or loss happened at (seconds from start): $times"
+@@
+'■ 目安'
+=>
+'## Verdict'
+@@
+'注意*'
+=>
+'WARN*'
+@@
+'  跳ねがほぼ同じ間隔で並んでいるなら、Wi-Fi の周辺スキャンなど、決まった間隔で動く処理が原因の可能性があります。'
+=>
+'  If the spikes are spaced at almost equal intervals, something that runs on a fixed interval, such as Wi-Fi background scanning, may be the cause.'
+@@
+"情報: 測っているあいだ、この PC でほかの通信が流れていました（下り 約 ${rx}Mbps、上り 約 ${tx}Mbps）。結果が悪く出ることがあります。"
+=>
+"INFO: Other traffic was flowing on this PC during the test (down about ${rx}Mbps, up about ${tx}Mbps). The result may look worse than it is."
+@@
+'  ここで測れるのは自分の側だけです。対戦のラグは、相手の回線や距離でも決まります。'
+=>
+'  This only measures your own side. Lag in a match also depends on the line of your opponent and the distance.'
+@@
+'  ダウンロード中や家族の動画再生中だけ遅いなら、ルーター側の詰まり (Bufferbloat) の可能性があります。対戦のあいだは、ほかの機器や PC のダウンロード・アップロードを止めてください。'
+=>
+'  If it is slow only during downloads or while family members watch video, the router may be clogging (bufferbloat). While you play, stop downloads and uploads on this PC and other devices.'
+@@
+'■ P2P 対戦のつながりやすさ（目安）'
+=>
+'## P2P connectivity (rough guide)'
+@@
+'  IPv4 over IPv6（v6プラス、transix など）の回線では、使えるポートが限られたり、ポートを開けられなかったりします。'
+=>
+'  On IPv4-over-IPv6 lines (MAP-E, DS-Lite and similar), the usable ports are limited or ports cannot be opened.'
+@@
+"==== $when  経路: $via  $kindName"
+=>
+"==== $when  Route: $via  $kindName"
+@@
+"結果を $MeasureLog に追記しました（設定の前後で比べられます）。"
+=>
+"Appended the result to $MeasureLog (you can compare before and after changing settings)."
+@@
+"=== 格闘ゲーム向け PC 設定チェック (FGNetCheck $AppVersion) ==="
+=>
+"=== PC settings check for fighting games (FGNetCheck $AppVersion) ==="
+@@
+'  1. 診断する（設定・手作業の案内・セキュリティの確認。何も変えません）'
+=>
+'  1. Diagnose (settings, things to check by hand, security. Changes nothing)'
+@@
+'  2. おすすめ設定を入れる（変更前の値を保存します）'
+=>
+'  2. Apply the recommended settings (saves the values from before the change)'
+@@
+'  3. 元に戻す（保存した値に戻します）'
+=>
+'  3. Restore (puts the saved values back)'
+@@
+'  4. 通信を測る（短い測定・長い測定）'
+=>
+'  4. Measure the connection (short test, long test)'
+@@
+'  Q. 終わる'
+=>
+'  Q. Quit'
+@@
+'番号を入れて Enter'
+=>
+'Enter a number and press Enter'
+@@
+'1〜4 か Q を入れてください。'
+=>
+'Enter 1-4 or Q.'
+@@
+"エラー: $($_.Exception.Message)"
+=>
+"Error: $($_.Exception.Message)"
